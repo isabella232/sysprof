@@ -110,6 +110,13 @@ if host_machine.system() != 'darwin'
   libsysprof_deps += [cxx.find_library('stdc++')]
 endif
 
+librax = static_library('rax', ['rax.c'],
+   c_args: [ '-Wno-declaration-after-statement',
+             '-Wno-format-nonliteral',
+             '-Wno-shadow' ],
+  install: false
+)
+
 libsysprof = shared_library(
   'sysprof-@0@'.format(libsysprof_api_version),
   libsysprof_public_sources + libsysprof_private_sources,
@@ -122,6 +129,7 @@ libsysprof = shared_library(
                 install: true,
             install_dir: get_option('libdir'),
   gnu_symbol_visibility: 'hidden',
+             link_whole: [ librax ],
 )
 
 libsysprof_dep = declare_dependency(
