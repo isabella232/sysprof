@@ -1,6 +1,7 @@
 libsysprof_memory_preload_deps = [
   libsysprof_capture_dep,
   cc.find_library('dl', required: false),
+  dependency('libunwind-generic'),
 ]
 
 libsysprof_memory_preload = shared_library('sysprof-memory-collector',

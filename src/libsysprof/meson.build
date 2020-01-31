@@ -16,6 +16,7 @@ libsysprof_public_sources = [
   'sysprof-kernel-symbol.c',
   'sysprof-kernel-symbol-resolver.c',
   'sysprof-local-profiler.c',
+  'sysprof-memory-profile.c',
   'sysprof-netdev-source.c',
   'sysprof-process-model.c',
   'sysprof-process-model-item.c',
@@ -45,6 +46,7 @@ libsysprof_public_headers = [
   'sysprof-kernel-symbol.h',
   'sysprof-kernel-symbol-resolver.h',
   'sysprof-local-profiler.h',
+  'sysprof-memory-profile.h',
   'sysprof-process-model.h',
   'sysprof-process-model-item.h',
   'sysprof-profile.h',
@@ -79,10 +81,22 @@ libsysprof_private_sources = [
 
 libsysprof_public_sources += libsysprof_capture_sources
 
+librax = static_library('rax', ['rax.c'],
+               c_args: [ '-Wno-declaration-after-statement',
+                         '-Wno-format-nonliteral',
+                         '-Wno-shadow' ],
+)
+
+librax_dep = declare_dependency(
+           link_whole: librax,
+  include_directories: include_directories('.'),
+)
+
 libsysprof_deps = [
   gio_dep,
   gio_unix_dep,
   polkit_dep,
+  librax_dep,
 ]
 
 if host_machine.system() == 'linux'
@@ -110,13 +124,6 @@ if host_machine.system() != 'darwin'
   libsysprof_deps += [cxx.find_library('stdc++')]
 endif
 
-librax = static_library('rax', ['rax.c'],
-   c_args: [ '-Wno-declaration-after-statement',
-             '-Wno-format-nonliteral',
-             '-Wno-shadow' ],
-  install: false
-)
-
 libsysprof = shared_library(
   'sysprof-@0@'.format(libsysprof_api_version),
   libsysprof_public_sources + libsysprof_private_sources,
@@ -129,7 +136,6 @@ libsysprof = shared_library(
                 install: true,
             install_dir: get_option('libdir'),
   gnu_symbol_visibility: 'hidden',
-             link_whole: [ librax ],
 )
 
 libsysprof_dep = declare_dependency(

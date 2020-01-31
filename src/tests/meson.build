@@ -64,6 +64,12 @@ test_resolvers = executable('test-resolvers',
   dependencies: test_deps,
 )
 
+show_page_usage = executable('show-page-usage',
+  [ 'show-page-usage.c' ],
+        c_args: test_cflags,
+  dependencies: test_deps + [ librax_dep,
+                              dependency('cairo') ],
+)
 
 if get_option('enable_gtk')
 

@@ -7,6 +7,9 @@
 #include <sys/types.h>
 #include <sysprof-capture.h>
 #include <unistd.h>
+#include <libunwind.h>
+
+#define CAPTURE_MAX_STACK_DEPTH 32
 
 typedef void *(* RealMalloc)        (size_t);
 typedef void  (* RealFree)          (void *);
@@ -67,7 +70,7 @@ scratch_calloc (size_t nmemb,
    */
   if (!hooked)
     hook_memtable ();
- 
+
   size *= nmemb;
   ret = &scratch.buf[scratch.off];
   scratch.off += size;
@@ -140,16 +143,31 @@ static inline void
 track_malloc (void   *ptr,
               size_t  size)
 {
+  SysprofCaptureAddress addrs[CAPTURE_MAX_STACK_DEPTH];
+  unw_context_t uc;
+  unw_cursor_t cursor;
+  unw_word_t ip;
+  guint n_addrs = 0;
+
   if G_UNLIKELY (!writer)
     return;
 
+  /* Get a stacktrace for the current allocation, but walk past our
+   * current function because we don't care about that stack frame.
+   */
+  unw_getcontext (&uc);
+  unw_init_local (&cursor, &uc);
+  if (unw_step (&cursor) > 0)
+    {
+      while (n_addrs < G_N_ELEMENTS (addrs) && unw_step (&cursor) > 0)
+        {
+          unw_get_reg (&cursor, UNW_REG_IP, &ip);
+          addrs[n_addrs++] = ip;
+        }
+    }
+
   G_LOCK (writer);
 
-  /* TODO: To make this really useful, we need to take a backtrace
-   * of the current stack so that we can show the user allocations
-   * within the application. However, for now we just want to get
-   * the allocation information to draw fragmentation.
-   */
   sysprof_capture_writer_add_memory_alloc (writer,
                                            SYSPROF_CAPTURE_CURRENT_TIME,
                                            sched_getcpu (),
@@ -157,8 +175,8 @@ track_malloc (void   *ptr,
                                            gettid(),
                                            GPOINTER_TO_SIZE (ptr),
                                            size,
-                                           NULL, /* TODO: Sample */
-                                           0);
+                                           addrs,
+                                           n_addrs);
   G_UNLOCK (writer);
 }
 
