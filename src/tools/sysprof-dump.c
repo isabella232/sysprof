@@ -304,7 +304,7 @@ main (gint argc,
             const SysprofCaptureMemoryAlloc *ev = sysprof_capture_reader_read_memory_alloc (reader);
             gdouble ptime = (ev->frame.time - begin_time) / (gdouble)SYSPROF_NSEC_PER_SEC;
 
-            g_print ("MALLOC: pid=%d tid=%d addr=%"G_GUINT64_FORMAT"x size=%"G_GUINT64_FORMAT" time=%"G_GINT64_FORMAT" (%lf)\n",
+            g_print ("MALLOC: pid=%d tid=%d addr=0x%"G_GINT64_MODIFIER"x size=%"G_GUINT64_FORMAT" time=%"G_GINT64_FORMAT" (%lf)\n",
                      ev->frame.pid, ev->tid,
                      ev->alloc_addr, ev->alloc_size,
                      ev->frame.time, ptime);
@@ -316,7 +316,7 @@ main (gint argc,
             const SysprofCaptureMemoryFree *ev = sysprof_capture_reader_read_memory_free (reader);
             gdouble ptime = (ev->frame.time - begin_time) / (gdouble)SYSPROF_NSEC_PER_SEC;
 
-            g_print ("FREE: pid=%d tid=%d addr=%"G_GUINT64_FORMAT"x time=%"G_GINT64_FORMAT" (%lf)\n",
+            g_print ("FREE: pid=%d tid=%d addr=0x%"G_GINT64_MODIFIER"x time=%"G_GINT64_FORMAT" (%lf)\n",
                      ev->frame.pid, ev->tid, ev->alloc_addr,
                      ev->frame.time, ptime);
           }
