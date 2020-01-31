@@ -1510,3 +1510,75 @@ sysprof_capture_writer_set_flush_delay (SysprofCaptureWriter *self,
 
   g_source_attach (self->periodic_flush, main_context);
 }
+
+gboolean
+sysprof_capture_writer_add_memory_alloc (SysprofCaptureWriter        *self,
+                                         gint64                       time,
+                                         gint                         cpu,
+                                         gint32                       pid,
+                                         gint32                       tid,
+                                         SysprofCaptureAddress        alloc_addr,
+                                         gsize                        alloc_size,
+                                         const SysprofCaptureAddress *addrs,
+                                         guint                        n_addrs)
+{
+  SysprofCaptureMemoryAlloc *ev;
+  gsize len;
+
+  g_assert (self != NULL);
+
+  len = sizeof *ev + (n_addrs * sizeof (SysprofCaptureAddress));
+
+  ev = (SysprofCaptureMemoryAlloc *)sysprof_capture_writer_allocate (self, &len);
+  if (!ev)
+    return FALSE;
+
+  sysprof_capture_writer_frame_init (&ev->frame,
+                                     len,
+                                     cpu,
+                                     pid,
+                                     time,
+                                     SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC);
+  ev->alloc_size = alloc_size;
+  ev->alloc_addr = alloc_addr;
+  ev->n_addrs = n_addrs;
+  ev->tid = tid;
+
+  memcpy (ev->addrs, addrs, (n_addrs * sizeof (SysprofCaptureAddress)));
+
+  self->stat.frame_count[SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC]++;
+
+  return TRUE;
+}
+
+gboolean
+sysprof_capture_writer_add_memory_free (SysprofCaptureWriter        *self,
+                                        gint64                       time,
+                                        gint                         cpu,
+                                        gint32                       pid,
+                                        gint32                       tid,
+                                        SysprofCaptureAddress        alloc_addr)
+{
+  SysprofCaptureMemoryFree *ev;
+  gsize len = sizeof *ev;
+
+  g_assert (self != NULL);
+
+  ev = (SysprofCaptureMemoryFree *)sysprof_capture_writer_allocate (self, &len);
+  if (!ev)
+    return FALSE;
+
+  sysprof_capture_writer_frame_init (&ev->frame,
+                                     len,
+                                     cpu,
+                                     pid,
+                                     time,
+                                     SYSPROF_CAPTURE_FRAME_MEMORY_FREE);
+
+  ev->tid = tid;
+  ev->alloc_addr = alloc_addr;
+
+  self->stat.frame_count[SYSPROF_CAPTURE_FRAME_MEMORY_FREE]++;
+
+  return TRUE;
+}

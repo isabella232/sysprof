@@ -299,6 +299,29 @@ main (gint argc,
           }
           break;
 
+        case SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC:
+          {
+            const SysprofCaptureMemoryAlloc *ev = sysprof_capture_reader_read_memory_alloc (reader);
+            gdouble ptime = (ev->frame.time - begin_time) / (gdouble)SYSPROF_NSEC_PER_SEC;
+
+            g_print ("MALLOC: pid=%d tid=%d addr=%"G_GUINT64_FORMAT"x size=%"G_GUINT64_FORMAT" time=%"G_GINT64_FORMAT" (%lf)\n",
+                     ev->frame.pid, ev->tid,
+                     ev->alloc_addr, ev->alloc_size,
+                     ev->frame.time, ptime);
+          }
+          break;
+
+        case SYSPROF_CAPTURE_FRAME_MEMORY_FREE:
+          {
+            const SysprofCaptureMemoryFree *ev = sysprof_capture_reader_read_memory_free (reader);
+            gdouble ptime = (ev->frame.time - begin_time) / (gdouble)SYSPROF_NSEC_PER_SEC;
+
+            g_print ("FREE: pid=%d tid=%d addr=%"G_GUINT64_FORMAT"x time=%"G_GINT64_FORMAT" (%lf)\n",
+                     ev->frame.pid, ev->tid, ev->alloc_addr,
+                     ev->frame.time, ptime);
+          }
+          break;
+
         default:
           g_print ("Skipping unknown frame type: (%d): ", type);
           if (!sysprof_capture_reader_skip (reader))

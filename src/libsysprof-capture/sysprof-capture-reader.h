@@ -119,6 +119,10 @@ SYSPROF_AVAILABLE_IN_ALL
 const SysprofCaptureCounterSet         *sysprof_capture_reader_read_counter_set    (SysprofCaptureReader     *self);
 SYSPROF_AVAILABLE_IN_ALL
 const SysprofCaptureFileChunk          *sysprof_capture_reader_read_file           (SysprofCaptureReader     *self);
+SYSPROF_AVAILABLE_IN_3_36
+const SysprofCaptureMemoryAlloc        *sysprof_capture_reader_read_memory_alloc   (SysprofCaptureReader     *self);
+SYSPROF_AVAILABLE_IN_3_36
+const SysprofCaptureMemoryFree         *sysprof_capture_reader_read_memory_free    (SysprofCaptureReader     *self);
 SYSPROF_AVAILABLE_IN_ALL
 gboolean                                sysprof_capture_reader_reset               (SysprofCaptureReader     *self);
 SYSPROF_AVAILABLE_IN_ALL

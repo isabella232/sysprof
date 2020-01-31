@@ -183,6 +183,23 @@ gboolean              sysprof_capture_writer_add_log         (SysprofCaptureWrit
                                                               GLogLevelFlags                     severity,
                                                               const gchar                       *domain,
                                                               const gchar                       *message);
+SYSPROF_AVAILABLE_IN_3_36
+gboolean              sysprof_capture_writer_add_memory_alloc(SysprofCaptureWriter              *self,
+                                                              gint64                             time,
+                                                              gint                               cpu,
+                                                              gint32                             pid,
+                                                              gint32                             tid,
+                                                              SysprofCaptureAddress              alloc_addr,
+                                                              gsize                              alloc_size,
+                                                              const SysprofCaptureAddress       *addrs,
+                                                              guint                              n_addrs);
+SYSPROF_AVAILABLE_IN_3_36
+gboolean              sysprof_capture_writer_add_memory_free (SysprofCaptureWriter              *self,
+                                                              gint64                             time,
+                                                              gint                               cpu,
+                                                              gint32                             pid,
+                                                              gint32                             tid,
+                                                              SysprofCaptureAddress              alloc_addr);
 SYSPROF_AVAILABLE_IN_ALL
 gboolean              sysprof_capture_writer_flush           (SysprofCaptureWriter              *self);
 SYSPROF_AVAILABLE_IN_ALL

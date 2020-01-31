@@ -115,19 +115,21 @@ typedef union
 
 typedef enum
 {
-  SYSPROF_CAPTURE_FRAME_TIMESTAMP  = 1,
-  SYSPROF_CAPTURE_FRAME_SAMPLE     = 2,
-  SYSPROF_CAPTURE_FRAME_MAP        = 3,
-  SYSPROF_CAPTURE_FRAME_PROCESS    = 4,
-  SYSPROF_CAPTURE_FRAME_FORK       = 5,
-  SYSPROF_CAPTURE_FRAME_EXIT       = 6,
-  SYSPROF_CAPTURE_FRAME_JITMAP     = 7,
-  SYSPROF_CAPTURE_FRAME_CTRDEF     = 8,
-  SYSPROF_CAPTURE_FRAME_CTRSET     = 9,
-  SYSPROF_CAPTURE_FRAME_MARK       = 10,
-  SYSPROF_CAPTURE_FRAME_METADATA   = 11,
-  SYSPROF_CAPTURE_FRAME_LOG        = 12,
-  SYSPROF_CAPTURE_FRAME_FILE_CHUNK = 13,
+  SYSPROF_CAPTURE_FRAME_TIMESTAMP    = 1,
+  SYSPROF_CAPTURE_FRAME_SAMPLE       = 2,
+  SYSPROF_CAPTURE_FRAME_MAP          = 3,
+  SYSPROF_CAPTURE_FRAME_PROCESS      = 4,
+  SYSPROF_CAPTURE_FRAME_FORK         = 5,
+  SYSPROF_CAPTURE_FRAME_EXIT         = 6,
+  SYSPROF_CAPTURE_FRAME_JITMAP       = 7,
+  SYSPROF_CAPTURE_FRAME_CTRDEF       = 8,
+  SYSPROF_CAPTURE_FRAME_CTRSET       = 9,
+  SYSPROF_CAPTURE_FRAME_MARK         = 10,
+  SYSPROF_CAPTURE_FRAME_METADATA     = 11,
+  SYSPROF_CAPTURE_FRAME_LOG          = 12,
+  SYSPROF_CAPTURE_FRAME_FILE_CHUNK   = 13,
+  SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC = 14,
+  SYSPROF_CAPTURE_FRAME_MEMORY_FREE  = 15,
 } SysprofCaptureFrameType;
 
 SYSPROF_ALIGNED_BEGIN(1)
@@ -309,6 +311,28 @@ typedef struct
   gchar               path[256];
   guint8              data[0];
 } SysprofCaptureFileChunk
+SYSPROF_ALIGNED_END(1);
+
+SYSPROF_ALIGNED_BEGIN(1)
+typedef struct
+{
+  SysprofCaptureFrame   frame;
+  SysprofCaptureAddress alloc_addr;
+  gint64                alloc_size;
+  guint32               n_addrs : 16;
+  guint32               padding1 : 16;
+  gint32                tid;
+  SysprofCaptureAddress addrs[0];
+} SysprofCaptureMemoryAlloc
+SYSPROF_ALIGNED_END(1);
+
+SYSPROF_ALIGNED_BEGIN(1)
+typedef struct
+{
+  SysprofCaptureFrame   frame;
+  SysprofCaptureAddress alloc_addr;
+  gint32                tid;
+} SysprofCaptureMemoryFree
 SYSPROF_ALIGNED_END(1);
 
 G_STATIC_ASSERT (sizeof (SysprofCaptureFileHeader) == 256);

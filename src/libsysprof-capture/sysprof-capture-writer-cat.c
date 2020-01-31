@@ -477,6 +477,39 @@ sysprof_capture_writer_cat (SysprofCaptureWriter  *self,
             goto panic;
           break;
 
+        case SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC: {
+          const SysprofCaptureMemoryAlloc *frame;
+
+          if (!(frame = sysprof_capture_reader_read_memory_alloc (reader)))
+            goto panic;
+
+          sysprof_capture_writer_add_memory_alloc (self,
+                                                   frame->frame.time,
+                                                   frame->frame.cpu,
+                                                   frame->frame.pid,
+                                                   frame->tid,
+                                                   frame->alloc_addr,
+                                                   frame->alloc_size,
+                                                   frame->addrs,
+                                                   frame->n_addrs);
+          break;
+        }
+
+        case SYSPROF_CAPTURE_FRAME_MEMORY_FREE: {
+          const SysprofCaptureMemoryFree *frame;
+
+          if (!(frame = sysprof_capture_reader_read_memory_free (reader)))
+            goto panic;
+
+          sysprof_capture_writer_add_memory_free (self,
+                                                  frame->frame.time,
+                                                  frame->frame.cpu,
+                                                  frame->frame.pid,
+                                                  frame->tid,
+                                                  frame->alloc_addr);
+          break;
+        }
+
         default:
           /* Silently drop, which is better than looping. We could potentially
            * copy this over using the raw bytes at some point.

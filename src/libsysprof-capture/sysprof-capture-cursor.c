@@ -207,6 +207,14 @@ sysprof_capture_cursor_foreach (SysprofCaptureCursor         *self,
           delegate = READ_DELEGATE (sysprof_capture_reader_read_file);
           break;
 
+        case SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC:
+          delegate = READ_DELEGATE (sysprof_capture_reader_read_memory_alloc);
+          break;
+
+        case SYSPROF_CAPTURE_FRAME_MEMORY_FREE:
+          delegate = READ_DELEGATE (sysprof_capture_reader_read_memory_free);
+          break;
+
         default:
           if (!sysprof_capture_reader_skip (self->reader))
             return;
