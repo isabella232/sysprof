@@ -1,6 +1,9 @@
 #define _GNU_SOURCE
 
+#include "config.h"
+
 #include <dlfcn.h>
+#include <execinfo.h>
 #include <sched.h>
 #include <stdlib.h>
 #include <sys/syscall.h>
@@ -144,27 +147,43 @@ track_malloc (void   *ptr,
               size_t  size)
 {
   SysprofCaptureAddress addrs[CAPTURE_MAX_STACK_DEPTH];
-  unw_context_t uc;
-  unw_cursor_t cursor;
-  unw_word_t ip;
+#if !ENABLE_LIBUNWIND && GLIB_SIZEOF_VOID_P != 8
+  gpointer voidp_addrs[CAPTURE_MAX_STACK_DEPTH];
+#endif
   guint n_addrs = 0;
 
   if G_UNLIKELY (!writer)
     return;
 
-  /* Get a stacktrace for the current allocation, but walk past our
-   * current function because we don't care about that stack frame.
-   */
-  unw_getcontext (&uc);
-  unw_init_local (&cursor, &uc);
-  if (unw_step (&cursor) > 0)
-    {
-      while (n_addrs < G_N_ELEMENTS (addrs) && unw_step (&cursor) > 0)
-        {
-          unw_get_reg (&cursor, UNW_REG_IP, &ip);
-          addrs[n_addrs++] = ip;
-        }
-    }
+#if ENABLE_LIBUNWIND
+  {
+    unw_context_t uc;
+    unw_cursor_t cursor;
+    unw_word_t ip;
+
+    /* Get a stacktrace for the current allocation, but walk past our
+     * current function because we don't care about that stack frame.
+     */
+    unw_getcontext (&uc);
+    unw_init_local (&cursor, &uc);
+    if (unw_step (&cursor) > 0)
+      {
+        while (n_addrs < G_N_ELEMENTS (addrs) && unw_step (&cursor) > 0)
+          {
+            unw_get_reg (&cursor, UNW_REG_IP, &ip);
+            addrs[n_addrs++] = ip;
+          }
+      }
+  }
+#else
+#if GLIB_SIZEOF_VOID_P == 8
+  n_addrs = backtrace ((void **)addrs, CAPTURE_MAX_STACK_DEPTH);
+# else
+  n_addrs = backtrace (voidp_addrs, CAPTURE_MAX_STACK_DEPTH);
+  for (guint i = 0; i < n_addrs; i++)
+    addrs[i] = GPOINTER_TO_SIZE (voidp_addrs[i]);
+# endif
+#endif
 
   G_LOCK (writer);
 

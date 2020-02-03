@@ -179,16 +179,16 @@ int main(void) {
   error('Sysprof requires a C compiler with stdatomic support such as GCC 4.9 or newer')
 endif
 
-configure_file(
-         output: 'config.h',
-  configuration: config_h
-)
-
 subdir('src')
 subdir('data')
 subdir('examples')
 subdir('help')
 subdir('po')
+
+configure_file(
+         output: 'config.h',
+  configuration: config_h
+)
 
 if get_option('enable_gtk')
   meson.add_install_script('build-aux/meson/post_install.sh')
