@@ -194,6 +194,14 @@ gboolean              sysprof_capture_writer_add_memory_alloc(SysprofCaptureWrit
                                                               const SysprofCaptureAddress       *addrs,
                                                               guint                              n_addrs);
 SYSPROF_AVAILABLE_IN_3_36
+gboolean              sysprof_capture_writer_add_memory_alloc_with_backtrace (SysprofCaptureWriter  *self,
+                                                                              gint64                 time,
+                                                                              gint                   cpu,
+                                                                              gint32                 pid,
+                                                                              gint32                 tid,
+                                                                              SysprofCaptureAddress  alloc_addr,
+                                                                              gsize                  alloc_size);
+SYSPROF_AVAILABLE_IN_3_36
 gboolean              sysprof_capture_writer_add_memory_free (SysprofCaptureWriter              *self,
                                                               gint64                             time,
                                                               gint                               cpu,
@@ -228,6 +236,7 @@ G_GNUC_INTERNAL
 gboolean              _sysprof_capture_writer_set_time_range (SysprofCaptureWriter              *self,
                                                               gint64                             start_time,
                                                               gint64                             end_time) G_GNUC_INTERNAL;
+
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (SysprofCaptureWriter, sysprof_capture_writer_unref)
 

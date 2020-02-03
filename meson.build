@@ -83,6 +83,15 @@ config_h.set10('ENABLE_NLS', true)
 config_h.set_quoted('PACKAGE_LOCALE_DIR', join_paths(get_option('prefix'), get_option('datadir'), 'locale'))
 config_h.set('LOCALEDIR', 'PACKAGE_LOCALE_DIR')
 
+if cc.has_header('execinfo.h')
+  config_h.set10('HAVE_EXECINFO_H', true)
+endif
+
+libunwind_dep = dependency('libunwind-generic', required: false)
+if libunwind_dep.found()
+  config_h.set10('ENABLE_LIBUNWIND', libunwind_dep.found())
+endif
+
 # Development build setup
 config_h.set('DEVELOPMENT_BUILD', version_split[1].to_int().is_odd())
 

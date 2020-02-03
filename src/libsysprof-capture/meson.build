@@ -34,6 +34,7 @@ configure_file(
 
 libsysprof_capture_deps = [
   glib_dep,
+  libunwind_dep,
 ]
 
 libsysprof_capture = static_library(

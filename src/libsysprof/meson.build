@@ -93,6 +93,7 @@ librax_dep = declare_dependency(
 )
 
 libsysprof_deps = [
+  libsysprof_capture_deps,
   gio_dep,
   gio_unix_dep,
   polkit_dep,

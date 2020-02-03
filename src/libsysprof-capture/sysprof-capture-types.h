@@ -352,6 +352,8 @@ G_STATIC_ASSERT (sizeof (SysprofCaptureMark) == 96);
 G_STATIC_ASSERT (sizeof (SysprofCaptureMetadata) == 64);
 G_STATIC_ASSERT (sizeof (SysprofCaptureLog) == 64);
 G_STATIC_ASSERT (sizeof (SysprofCaptureFileChunk) == 284);
+G_STATIC_ASSERT (sizeof (SysprofCaptureMemoryAlloc) == 48);
+G_STATIC_ASSERT ((G_STRUCT_OFFSET (SysprofCaptureMemoryAlloc, addrs) % 8) == 0);
 
 static inline gint
 sysprof_capture_address_compare (SysprofCaptureAddress a,

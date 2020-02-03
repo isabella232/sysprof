@@ -63,8 +63,14 @@
 #endif
 
 #include <errno.h>
+#ifdef HAVE_EXECINFO_H
+# include <execinfo.h>
+#endif
 #include <fcntl.h>
 #include <glib/gstdio.h>
+#ifdef ENABLE_LIBUNWIND
+# include <libunwind.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -78,6 +84,7 @@
 #define DEFAULT_BUFFER_SIZE (_sysprof_getpagesize() * 64L)
 #define INVALID_ADDRESS     (G_GUINT64_CONSTANT(0))
 #define MAX_COUNTERS        ((1 << 24) - 1)
+#define MAX_UNWIND_DEPTH    64
 
 typedef struct
 {
@@ -1545,6 +1552,80 @@ sysprof_capture_writer_add_memory_alloc (SysprofCaptureWriter        *self,
   ev->tid = tid;
 
   memcpy (ev->addrs, addrs, (n_addrs * sizeof (SysprofCaptureAddress)));
+
+  self->stat.frame_count[SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC]++;
+
+  return TRUE;
+}
+
+gboolean
+sysprof_capture_writer_add_memory_alloc_with_backtrace (SysprofCaptureWriter  *self,
+                                                        gint64                 time,
+                                                        gint                   cpu,
+                                                        gint32                 pid,
+                                                        gint32                 tid,
+                                                        SysprofCaptureAddress  alloc_addr,
+                                                        gsize                  alloc_size)
+{
+  SysprofCaptureMemoryAlloc *ev;
+  gsize len;
+
+  g_assert (self != NULL);
+
+  len = sizeof *ev + (MAX_UNWIND_DEPTH * sizeof (SysprofCaptureAddress));
+  ev = (SysprofCaptureMemoryAlloc *)sysprof_capture_writer_allocate (self, &len);
+  if (!ev)
+    return FALSE;
+
+  sysprof_capture_writer_frame_init (&ev->frame,
+                                     len,
+                                     cpu,
+                                     pid,
+                                     time,
+                                     SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC);
+
+  ev->alloc_size = alloc_size;
+  ev->alloc_addr = alloc_addr;
+  ev->padding1 = 0;
+  ev->tid = tid;
+  ev->n_addrs = 0;
+
+#if defined(ENABLE_LIBUNWIND)
+  {
+    unw_context_t uc;
+    unw_cursor_t cursor;
+    unw_word_t ip;
+
+    unw_getcontext (&uc);
+    unw_init_local (&cursor, &uc);
+
+    while (ev->n_addrs < MAX_UNWIND_DEPTH && unw_step (&cursor) > 0)
+      {
+        unw_get_reg (&cursor, UNW_REG_IP, &ip);
+        ev->addrs[ev->n_addrs++] = ip;
+      }
+  }
+#elif defined(HAVE_EXECINFO_H)
+# if GLIB_SIZEOF_VOID_P == 8
+  ev->n_addrs = backtrace ((void **)ev->addrs, MAX_UNWIND_DEPTH);
+# else /* GLIB_SIZEOF_VOID_P != 8 */
+  {
+    void *stack[MAX_UNWIND_DEPTH];
+
+    ev->n_addrs = backtrace (stack, MAX_UNWIND_DEPTH);
+    for (guint i = 0; i < ev->n_addrs; i++)
+      ev->addrs[i] = GPOINTER_TO_SIZE (stack[i]);
+  }
+# endif /* GLIB_SIZEOF_VOID_P */
+#endif
+
+  if (ev->n_addrs < MAX_UNWIND_DEPTH)
+    {
+      gsize diff = (sizeof (SysprofCaptureAddress) * (MAX_UNWIND_DEPTH - ev->n_addrs));
+
+      ev->frame.len -= diff;
+      self->pos -= diff;
+    }
 
   self->stat.frame_count[SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC]++;
 
