@@ -37,6 +37,7 @@ G_BEGIN_DECLS
 # include "sysprof-kernel-symbol.h"
 # include "sysprof-local-profiler.h"
 # include "sysprof-memory-profile.h"
+# include "sysprof-memprof-source.h"
 # include "sysprof-netdev-source.h"
 # include "sysprof-process-model-item.h"
 # include "sysprof-process-model.h"

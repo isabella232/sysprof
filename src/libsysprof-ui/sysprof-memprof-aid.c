@@ -26,6 +26,7 @@
 
 #include "sysprof-memprof-aid.h"
 #include "sysprof-memprof-page.h"
+#include "sysprof-memprof-source.h"
 
 struct _SysprofMemprofAid
 {
@@ -80,9 +81,7 @@ sysprof_memprof_aid_prepare (SysprofAid      *self,
   g_assert (SYSPROF_IS_MEMPROF_AID (self));
   g_assert (SYSPROF_IS_PROFILER (profiler));
 
-  source = g_object_new (SYSPROF_TYPE_TRACEFD_SOURCE,
-                         "envvar", "MEMPROF_TRACE_FD",
-                         NULL);
+  source = sysprof_memprof_source_new ();
   sysprof_profiler_add_source (profiler, source);
 #endif
 }

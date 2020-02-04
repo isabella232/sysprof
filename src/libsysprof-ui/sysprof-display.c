@@ -43,6 +43,7 @@
 #include "sysprof-logs-aid.h"
 #include "sysprof-marks-aid.h"
 #include "sysprof-memory-aid.h"
+#include "sysprof-memprof-aid.h"
 #include "sysprof-netdev-aid.h"
 #include "sysprof-rapl-aid.h"
 
@@ -656,6 +657,7 @@ sysprof_display_present_async (SysprofDisplay       *self,
   g_ptr_array_add (aids, sysprof_logs_aid_new ());
   g_ptr_array_add (aids, sysprof_marks_aid_new ());
   g_ptr_array_add (aids, sysprof_memory_aid_new ());
+  g_ptr_array_add (aids, sysprof_memprof_aid_new ());
   g_ptr_array_add (aids, sysprof_netdev_aid_new ());
   g_ptr_array_add (aids, sysprof_rapl_aid_new ());
 
