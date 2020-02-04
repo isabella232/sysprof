@@ -1,4 +1,4 @@
-/* sysprof-memory-page.h
+/* sysprof-memprof-page.h
  *
  * Copyright 2016-2019 Christian Hergert <chergert@redhat.com>
  *
@@ -27,25 +27,25 @@
 
 G_BEGIN_DECLS
 
-#define SYSPROF_TYPE_MEMORY_PAGE (sysprof_memory_page_get_type())
+#define SYSPROF_TYPE_MEMPROF_PAGE (sysprof_memprof_page_get_type())
 
-G_DECLARE_DERIVABLE_TYPE (SysprofMemoryPage, sysprof_memory_page, SYSPROF, MEMORY_PAGE, SysprofPage)
+G_DECLARE_DERIVABLE_TYPE (SysprofMemprofPage, sysprof_memprof_page, SYSPROF, MEMPROF_PAGE, SysprofPage)
 
-struct _SysprofMemoryPageClass
+struct _SysprofMemprofPageClass
 {
   SysprofPageClass parent_class;
 
-  void (*go_previous) (SysprofMemoryPage *self);
+  void (*go_previous) (SysprofMemprofPage *self);
 
   /*< private >*/
   gpointer _reserved[16];
 };
 
-GtkWidget            *sysprof_memory_page_new             (void);
-SysprofMemoryProfile *sysprof_memory_page_get_profile     (SysprofMemoryPage    *self);
-void                  sysprof_memory_page_set_profile     (SysprofMemoryPage    *self,
+GtkWidget            *sysprof_memprof_page_new             (void);
+SysprofMemoryProfile *sysprof_memprof_page_get_profile     (SysprofMemprofPage    *self);
+void                  sysprof_memprof_page_set_profile     (SysprofMemprofPage    *self,
                                                            SysprofMemoryProfile *profile);
-gchar                *sysprof_memory_page_screenshot      (SysprofMemoryPage    *self);
-guint                 sysprof_memory_page_get_n_functions (SysprofMemoryPage    *self);
+gchar                *sysprof_memprof_page_screenshot      (SysprofMemprofPage    *self);
+guint                 sysprof_memprof_page_get_n_functions (SysprofMemprofPage    *self);
 
 G_END_DECLS

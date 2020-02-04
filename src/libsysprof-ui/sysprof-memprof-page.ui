@@ -1,5 +1,5 @@
 <interface>
-  <template class="SysprofMemoryPage" parent="SysprofPage">
+  <template class="SysprofMemprofPage" parent="SysprofPage">
     <child>
       <object class="GtkStack" id="stack">
         <property name="visible">true</property>

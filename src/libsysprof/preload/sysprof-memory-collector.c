@@ -120,7 +120,7 @@ hook_memtable (void)
    * to sysprof to request new writer/muxed APIs.
    */
 
-  env = getenv ("MEMORY_TRACE_FD");
+  env = getenv ("MEMPROF_TRACE_FD");
 
   if (env != NULL)
     {

@@ -1,4 +1,4 @@
-/* sysprof-memory-page.c
+/* sysprof-memprof-page.c
  *
  * Copyright 2016-2019 Christian Hergert <chergert@redhat.com>
  *
@@ -45,7 +45,7 @@
 #include "../stackstash.h"
 
 #include "sysprof-cell-renderer-percent.h"
-#include "sysprof-memory-page.h"
+#include "sysprof-memprof-page.h"
 #include "sysprof-profile.h"
 
 typedef struct
@@ -62,9 +62,9 @@ typedef struct
 
   guint                     profile_size;
   guint                     loading;
-} SysprofMemoryPagePrivate;
+} SysprofMemprofPagePrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE (SysprofMemoryPage, sysprof_memory_page, SYSPROF_TYPE_PAGE)
+G_DEFINE_TYPE_WITH_PRIVATE (SysprofMemprofPage, sysprof_memprof_page, SYSPROF_TYPE_PAGE)
 
 enum {
   PROP_0,
@@ -85,21 +85,21 @@ enum {
   COLUMN_HITS,
 };
 
-static void sysprof_memory_page_update_descendants (SysprofMemoryPage *self,
+static void sysprof_memprof_page_update_descendants (SysprofMemprofPage *self,
                                                     StackNode         *node);
 
 static GParamSpec *properties [N_PROPS];
 static guint signals [N_SIGNALS];
 
 static guint
-sysprof_memory_page_get_profile_size (SysprofMemoryPage *self)
+sysprof_memprof_page_get_profile_size (SysprofMemprofPage *self)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
   StackStash *stash;
   StackNode *node;
   guint size = 0;
 
-  g_assert (SYSPROF_IS_MEMORY_PAGE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
 
   if (priv->profile_size != 0)
     return priv->profile_size;
@@ -152,10 +152,10 @@ build_functions_store (StackNode *node,
 }
 
 static void
-sysprof_memory_page_load (SysprofMemoryPage    *self,
+sysprof_memprof_page_load (SysprofMemprofPage    *self,
                           SysprofMemoryProfile *profile)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
   GtkListStore *functions;
   StackStash *stash;
   StackNode *n;
@@ -165,7 +165,7 @@ sysprof_memory_page_load (SysprofMemoryPage    *self,
     gdouble profile_size;
   } state = { 0 };
 
-  g_assert (SYSPROF_IS_MEMORY_PAGE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
   g_assert (SYSPROF_IS_MEMORY_PROFILE (profile));
 
   /*
@@ -215,21 +215,21 @@ sysprof_memory_page_load (SysprofMemoryPage    *self,
 }
 
 void
-_sysprof_memory_page_set_failed (SysprofMemoryPage *self)
+_sysprof_memprof_page_set_failed (SysprofMemprofPage *self)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
 
-  g_return_if_fail (SYSPROF_IS_MEMORY_PAGE (self));
+  g_return_if_fail (SYSPROF_IS_MEMPROF_PAGE (self));
 
   gtk_stack_set_visible_child_name (priv->stack, "empty-state");
 }
 
 static void
-sysprof_memory_page_unload (SysprofMemoryPage *self)
+sysprof_memprof_page_unload (SysprofMemprofPage *self)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
 
-  g_assert (SYSPROF_IS_MEMORY_PAGE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
   g_assert (SYSPROF_IS_MEMORY_PROFILE (priv->profile));
 
   g_queue_clear (priv->history);
@@ -244,45 +244,45 @@ sysprof_memory_page_unload (SysprofMemoryPage *self)
 }
 
 /**
- * sysprof_memory_page_get_profile:
+ * sysprof_memprof_page_get_profile:
  *
  * Returns: (transfer none): An #SysprofMemoryProfile.
  */
 SysprofMemoryProfile *
-sysprof_memory_page_get_profile (SysprofMemoryPage *self)
+sysprof_memprof_page_get_profile (SysprofMemprofPage *self)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
 
-  g_return_val_if_fail (SYSPROF_IS_MEMORY_PAGE (self), NULL);
+  g_return_val_if_fail (SYSPROF_IS_MEMPROF_PAGE (self), NULL);
 
   return priv->profile;
 }
 
 void
-sysprof_memory_page_set_profile (SysprofMemoryPage    *self,
+sysprof_memprof_page_set_profile (SysprofMemprofPage    *self,
                                  SysprofMemoryProfile *profile)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
 
-  g_return_if_fail (SYSPROF_IS_MEMORY_PAGE (self));
+  g_return_if_fail (SYSPROF_IS_MEMPROF_PAGE (self));
   g_return_if_fail (!profile || SYSPROF_IS_MEMORY_PROFILE (profile));
 
   if (profile != priv->profile)
     {
       if (priv->profile)
-        sysprof_memory_page_unload (self);
+        sysprof_memprof_page_unload (self);
 
       if (profile)
-        sysprof_memory_page_load (self, profile);
+        sysprof_memprof_page_load (self, profile);
 
       g_object_notify_by_pspec (G_OBJECT (self), properties [PROP_PROFILE]);
     }
 }
 
 static void
-sysprof_memory_page_expand_descendants (SysprofMemoryPage *self)
+sysprof_memprof_page_expand_descendants (SysprofMemprofPage *self)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
   GtkTreeModel *model;
   GList *all_paths = NULL;
   GtkTreePath *first_path;
@@ -291,7 +291,7 @@ sysprof_memory_page_expand_descendants (SysprofMemoryPage *self)
   gint max_rows = 40; /* FIXME */
   gint n_rows;
 
-  g_assert (SYSPROF_IS_MEMORY_PAGE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
 
   model = gtk_tree_view_get_model (priv->descendants_view);
   first_path = gtk_tree_path_new_first ();
@@ -405,10 +405,10 @@ caller_free (gpointer data)
 }
 
 static void
-sysprof_memory_page_function_selection_changed (SysprofMemoryPage *self,
+sysprof_memprof_page_function_selection_changed (SysprofMemprofPage *self,
                                                 GtkTreeSelection  *selection)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
   GtkTreeModel *model = NULL;
   GtkTreeIter iter;
   GtkListStore *callers_store;
@@ -417,7 +417,7 @@ sysprof_memory_page_function_selection_changed (SysprofMemoryPage *self,
   StackNode *callees = NULL;
   StackNode *node;
 
-  g_assert (SYSPROF_IS_MEMORY_PAGE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
   g_assert (GTK_IS_TREE_SELECTION (selection));
 
   if (!gtk_tree_selection_get_selected (selection, &model, &iter))
@@ -431,7 +431,7 @@ sysprof_memory_page_function_selection_changed (SysprofMemoryPage *self,
                       COLUMN_POINTER, &callees,
                       -1);
 
-  sysprof_memory_page_update_descendants (self, callees);
+  sysprof_memprof_page_update_descendants (self, callees);
 
   callers_store = gtk_list_store_new (4,
                                       G_TYPE_STRING,
@@ -500,7 +500,7 @@ sysprof_memory_page_function_selection_changed (SysprofMemoryPage *self,
     gpointer key, value;
     guint size = 0;
 
-    size = MAX (1, sysprof_memory_page_get_profile_size (self));
+    size = MAX (1, sysprof_memprof_page_get_profile_size (self));
 
     g_hash_table_iter_init (&hiter, callers);
 
@@ -527,14 +527,14 @@ sysprof_memory_page_function_selection_changed (SysprofMemoryPage *self,
 }
 
 static void
-sysprof_memory_page_set_node (SysprofMemoryPage *self,
+sysprof_memprof_page_set_node (SysprofMemprofPage *self,
                               StackNode         *node)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
   GtkTreeModel *model;
   GtkTreeIter iter;
 
-  g_assert (SYSPROF_IS_MEMORY_PAGE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
   g_assert (node != NULL);
 
   if (priv->profile == NULL)
@@ -567,7 +567,7 @@ sysprof_memory_page_set_node (SysprofMemoryPage *self,
 }
 
 static void
-sysprof_memory_page_descendant_activated (SysprofMemoryPage *self,
+sysprof_memprof_page_descendant_activated (SysprofMemprofPage *self,
                                           GtkTreePath       *path,
                                           GtkTreeViewColumn *column,
                                           GtkTreeView       *tree_view)
@@ -576,7 +576,7 @@ sysprof_memory_page_descendant_activated (SysprofMemoryPage *self,
   StackNode *node = NULL;
   GtkTreeIter iter;
 
-  g_assert (SYSPROF_IS_MEMORY_PAGE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
   g_assert (GTK_IS_TREE_VIEW (tree_view));
   g_assert (path != NULL);
   g_assert (GTK_IS_TREE_VIEW_COLUMN (column));
@@ -591,11 +591,11 @@ sysprof_memory_page_descendant_activated (SysprofMemoryPage *self,
                       -1);
 
   if (node != NULL)
-    sysprof_memory_page_set_node (self, node);
+    sysprof_memprof_page_set_node (self, node);
 }
 
 static void
-sysprof_memory_page_caller_activated (SysprofMemoryPage *self,
+sysprof_memprof_page_caller_activated (SysprofMemprofPage *self,
                                       GtkTreePath       *path,
                                       GtkTreeViewColumn *column,
                                       GtkTreeView       *tree_view)
@@ -604,7 +604,7 @@ sysprof_memory_page_caller_activated (SysprofMemoryPage *self,
   StackNode *node = NULL;
   GtkTreeIter iter;
 
-  g_assert (SYSPROF_IS_MEMORY_PAGE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
   g_assert (GTK_IS_TREE_VIEW (tree_view));
   g_assert (path != NULL);
   g_assert (GTK_IS_TREE_VIEW_COLUMN (column));
@@ -619,18 +619,18 @@ sysprof_memory_page_caller_activated (SysprofMemoryPage *self,
                       -1);
 
   if (node != NULL)
-    sysprof_memory_page_set_node (self, node);
+    sysprof_memprof_page_set_node (self, node);
 }
 
 static void
-sysprof_memory_page_tag_data_func (GtkTreeViewColumn *column,
+sysprof_memprof_page_tag_data_func (GtkTreeViewColumn *column,
                                    GtkCellRenderer   *cell,
                                    GtkTreeModel      *model,
                                    GtkTreeIter       *iter,
                                    gpointer           data)
 {
-  SysprofMemoryPage *self = data;
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPage *self = data;
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
   StackNode *node = NULL;
   const gchar *str = NULL;
 
@@ -652,17 +652,17 @@ sysprof_memory_page_tag_data_func (GtkTreeViewColumn *column,
 }
 
 static void
-sysprof_memory_page_real_go_previous (SysprofMemoryPage *self)
+sysprof_memprof_page_real_go_previous (SysprofMemprofPage *self)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
   StackNode *node;
 
-  g_assert (SYSPROF_IS_MEMORY_PAGE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
 
   node = g_queue_pop_head (priv->history);
 
   if (NULL != (node = g_queue_peek_head (priv->history)))
-    sysprof_memory_page_set_node (self, node);
+    sysprof_memprof_page_set_node (self, node);
 }
 
 static void
@@ -747,15 +747,15 @@ copy_tree_view_selection (GtkTreeView *tree_view)
 }
 
 static void
-sysprof_memory_page_copy_cb (GtkWidget         *widget,
-                             SysprofMemoryPage *self)
+sysprof_memprof_page_copy_cb (GtkWidget         *widget,
+                             SysprofMemprofPage *self)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
   GtkWidget *toplevel;
   GtkWidget *focus;
 
   g_assert (GTK_IS_WIDGET (widget));
-  g_assert (SYSPROF_IS_MEMORY_PAGE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
 
   if (!(toplevel = gtk_widget_get_toplevel (widget)) ||
       !GTK_IS_WINDOW (toplevel) ||
@@ -771,12 +771,12 @@ sysprof_memory_page_copy_cb (GtkWidget         *widget,
 }
 
 static void
-sysprof_memory_page_generate_cb (GObject      *object,
+sysprof_memprof_page_generate_cb (GObject      *object,
                                  GAsyncResult *result,
                                  gpointer      user_data)
 {
   SysprofProfile *profile = (SysprofProfile *)object;
-  SysprofMemoryPage *self;
+  SysprofMemprofPage *self;
   g_autoptr(GTask) task = user_data;
   g_autoptr(GError) error = NULL;
 
@@ -789,11 +789,11 @@ sysprof_memory_page_generate_cb (GObject      *object,
   if (!sysprof_profile_generate_finish (profile, result, &error))
     g_task_return_error (task, g_steal_pointer (&error));
   else
-    sysprof_memory_page_set_profile (self, SYSPROF_MEMORY_PROFILE (profile));
+    sysprof_memprof_page_set_profile (self, SYSPROF_MEMORY_PROFILE (profile));
 }
 
 static void
-sysprof_memory_page_load_async (SysprofPage             *page,
+sysprof_memprof_page_load_async (SysprofPage             *page,
                                 SysprofCaptureReader    *reader,
                                 SysprofSelection        *selection,
                                 SysprofCaptureCondition *filter,
@@ -801,18 +801,18 @@ sysprof_memory_page_load_async (SysprofPage             *page,
                                 GAsyncReadyCallback      callback,
                                 gpointer                 user_data)
 {
-  SysprofMemoryPage *self = (SysprofMemoryPage *)page;
+  SysprofMemprofPage *self = (SysprofMemprofPage *)page;
   g_autoptr(SysprofCaptureReader) copy = NULL;
   g_autoptr(SysprofProfile) profile = NULL;
   g_autoptr(GTask) task = NULL;
 
-  g_assert (SYSPROF_IS_MEMORY_PAGE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
   g_assert (reader != NULL);
   g_assert (SYSPROF_IS_SELECTION (selection));
   g_assert (!cancellable || G_IS_CANCELLABLE (cancellable));
 
   task = g_task_new (self, cancellable, callback, user_data);
-  g_task_set_source_tag (task, sysprof_memory_page_load_async);
+  g_task_set_source_tag (task, sysprof_memprof_page_load_async);
 
   copy = sysprof_capture_reader_copy (reader);
 
@@ -820,41 +820,41 @@ sysprof_memory_page_load_async (SysprofPage             *page,
   sysprof_profile_set_reader (profile, reader);
   sysprof_profile_generate (profile,
                             cancellable,
-                            sysprof_memory_page_generate_cb,
+                            sysprof_memprof_page_generate_cb,
                             g_steal_pointer (&task));
 }
 
 static gboolean
-sysprof_memory_page_load_finish (SysprofPage   *page,
+sysprof_memprof_page_load_finish (SysprofPage   *page,
                                  GAsyncResult  *result,
                                  GError       **error)
 {
-  g_return_val_if_fail (SYSPROF_IS_MEMORY_PAGE (page), FALSE);
+  g_return_val_if_fail (SYSPROF_IS_MEMPROF_PAGE (page), FALSE);
   g_return_val_if_fail (G_IS_TASK (result), FALSE);
 
   return g_task_propagate_boolean (G_TASK (result), error);
 }
 
 static void
-sysprof_memory_page_finalize (GObject *object)
+sysprof_memprof_page_finalize (GObject *object)
 {
-  SysprofMemoryPage *self = (SysprofMemoryPage *)object;
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPage *self = (SysprofMemprofPage *)object;
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
 
   g_clear_pointer (&priv->history, g_queue_free);
   g_clear_object (&priv->profile);
 
-  G_OBJECT_CLASS (sysprof_memory_page_parent_class)->finalize (object);
+  G_OBJECT_CLASS (sysprof_memprof_page_parent_class)->finalize (object);
 }
 
 static void
-sysprof_memory_page_get_property (GObject    *object,
+sysprof_memprof_page_get_property (GObject    *object,
                                   guint       prop_id,
                                   GValue     *value,
                                   GParamSpec *pspec)
 {
-  SysprofMemoryPage *self = SYSPROF_MEMORY_PAGE (object);
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPage *self = SYSPROF_MEMPROF_PAGE (object);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
 
   switch (prop_id)
     {
@@ -868,17 +868,17 @@ sysprof_memory_page_get_property (GObject    *object,
 }
 
 static void
-sysprof_memory_page_set_property (GObject      *object,
+sysprof_memprof_page_set_property (GObject      *object,
                                   guint         prop_id,
                                   const GValue *value,
                                   GParamSpec   *pspec)
 {
-  SysprofMemoryPage *self = SYSPROF_MEMORY_PAGE (object);
+  SysprofMemprofPage *self = SYSPROF_MEMPROF_PAGE (object);
 
   switch (prop_id)
     {
     case PROP_PROFILE:
-      sysprof_memory_page_set_profile (self, g_value_get_object (value));
+      sysprof_memprof_page_set_profile (self, g_value_get_object (value));
       break;
 
     default:
@@ -887,21 +887,21 @@ sysprof_memory_page_set_property (GObject      *object,
 }
 
 static void
-sysprof_memory_page_class_init (SysprofMemoryPageClass *klass)
+sysprof_memprof_page_class_init (SysprofMemprofPageClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
   SysprofPageClass *page_class = SYSPROF_PAGE_CLASS (klass);
   GtkBindingSet *bindings;
 
-  object_class->finalize = sysprof_memory_page_finalize;
-  object_class->get_property = sysprof_memory_page_get_property;
-  object_class->set_property = sysprof_memory_page_set_property;
+  object_class->finalize = sysprof_memprof_page_finalize;
+  object_class->get_property = sysprof_memprof_page_get_property;
+  object_class->set_property = sysprof_memprof_page_set_property;
 
-  page_class->load_async = sysprof_memory_page_load_async;
-  page_class->load_finish = sysprof_memory_page_load_finish;
+  page_class->load_async = sysprof_memprof_page_load_async;
+  page_class->load_finish = sysprof_memprof_page_load_finish;
 
-  klass->go_previous = sysprof_memory_page_real_go_previous;
+  klass->go_previous = sysprof_memprof_page_real_go_previous;
 
   properties [PROP_PROFILE] =
     g_param_spec_object ("profile",
@@ -916,17 +916,17 @@ sysprof_memory_page_class_init (SysprofMemoryPageClass *klass)
     g_signal_new ("go-previous",
                   G_TYPE_FROM_CLASS (klass),
                   G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-                  G_STRUCT_OFFSET (SysprofMemoryPageClass, go_previous),
+                  G_STRUCT_OFFSET (SysprofMemprofPageClass, go_previous),
                   NULL, NULL, NULL, G_TYPE_NONE, 0);
 
   gtk_widget_class_set_template_from_resource (widget_class,
-                                               "/org/gnome/sysprof/ui/sysprof-memory-page.ui");
+                                               "/org/gnome/sysprof/ui/sysprof-memprof-page.ui");
 
-  gtk_widget_class_bind_template_child_private (widget_class, SysprofMemoryPage, callers_view);
-  gtk_widget_class_bind_template_child_private (widget_class, SysprofMemoryPage, functions_view);
-  gtk_widget_class_bind_template_child_private (widget_class, SysprofMemoryPage, descendants_view);
-  gtk_widget_class_bind_template_child_private (widget_class, SysprofMemoryPage, descendants_name_column);
-  gtk_widget_class_bind_template_child_private (widget_class, SysprofMemoryPage, stack);
+  gtk_widget_class_bind_template_child_private (widget_class, SysprofMemprofPage, callers_view);
+  gtk_widget_class_bind_template_child_private (widget_class, SysprofMemprofPage, functions_view);
+  gtk_widget_class_bind_template_child_private (widget_class, SysprofMemprofPage, descendants_view);
+  gtk_widget_class_bind_template_child_private (widget_class, SysprofMemprofPage, descendants_name_column);
+  gtk_widget_class_bind_template_child_private (widget_class, SysprofMemprofPage, stack);
 
   bindings = gtk_binding_set_by_class (klass);
   gtk_binding_entry_add_signal (bindings, GDK_KEY_Left, GDK_MOD1_MASK, "go-previous", 0);
@@ -935,9 +935,9 @@ sysprof_memory_page_class_init (SysprofMemoryPageClass *klass)
 }
 
 static void
-sysprof_memory_page_init (SysprofMemoryPage *self)
+sysprof_memprof_page_init (SysprofMemprofPage *self)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
   DzlShortcutController *controller;
   GtkTreeSelection *selection;
   GtkCellRenderer *cell;
@@ -952,19 +952,19 @@ sysprof_memory_page_init (SysprofMemoryPage *self)
 
   g_signal_connect_object (selection,
                            "changed",
-                           G_CALLBACK (sysprof_memory_page_function_selection_changed),
+                           G_CALLBACK (sysprof_memprof_page_function_selection_changed),
                            self,
                            G_CONNECT_SWAPPED);
 
   g_signal_connect_object (priv->descendants_view,
                            "row-activated",
-                           G_CALLBACK (sysprof_memory_page_descendant_activated),
+                           G_CALLBACK (sysprof_memprof_page_descendant_activated),
                            self,
                            G_CONNECT_SWAPPED);
 
   g_signal_connect_object (priv->callers_view,
                            "row-activated",
-                           G_CALLBACK (sysprof_memory_page_caller_activated),
+                           G_CALLBACK (sysprof_memprof_page_caller_activated),
                            self,
                            G_CONNECT_SWAPPED);
 
@@ -987,7 +987,7 @@ sysprof_memory_page_init (SysprofMemoryPage *self)
                        NULL);
   gtk_tree_view_column_pack_start (priv->descendants_name_column, cell, FALSE);
   gtk_tree_view_column_set_cell_data_func (priv->descendants_name_column, cell,
-                                           sysprof_memory_page_tag_data_func,
+                                           sysprof_memprof_page_tag_data_func,
                                            self, NULL);
 
   gtk_tree_selection_set_mode (gtk_tree_view_get_selection (priv->descendants_view),
@@ -999,7 +999,7 @@ sysprof_memory_page_init (SysprofMemoryPage *self)
                                                 "org.gnome.sysprof3.capture.copy",
                                                 "<Control>c",
                                                 DZL_SHORTCUT_PHASE_BUBBLE,
-                                                (GtkCallback) sysprof_memory_page_copy_cb,
+                                                (GtkCallback) sysprof_memprof_page_copy_cb,
                                                 self,
                                                 NULL);
 }
@@ -1101,7 +1101,7 @@ build_tree (StackNode *node)
 }
 
 static void
-append_to_tree_and_free (SysprofMemoryPage *self,
+append_to_tree_and_free (SysprofMemprofPage *self,
                          StackStash           *stash,
                          GtkTreeStore         *store,
                          Descendant           *item,
@@ -1114,7 +1114,7 @@ append_to_tree_and_free (SysprofMemoryPage *self,
   g_assert (GTK_IS_TREE_STORE (store));
   g_assert (item != NULL);
 
-  profile_size = MAX (1, sysprof_memory_page_get_profile_size (self));
+  profile_size = MAX (1, sysprof_memprof_page_get_profile_size (self));
 
   gtk_tree_store_append (store, &iter, parent);
 
@@ -1138,13 +1138,13 @@ append_to_tree_and_free (SysprofMemoryPage *self,
 }
 
 static void
-sysprof_memory_page_update_descendants (SysprofMemoryPage *self,
+sysprof_memprof_page_update_descendants (SysprofMemprofPage *self,
                                         StackNode         *node)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
   GtkTreeStore *store;
 
-  g_assert (SYSPROF_IS_MEMORY_PAGE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
 
   if (g_queue_peek_head (priv->history) != node)
     g_queue_push_head (priv->history, node);
@@ -1174,14 +1174,14 @@ sysprof_memory_page_update_descendants (SysprofMemoryPage *self,
   gtk_tree_view_set_model (priv->descendants_view, GTK_TREE_MODEL (store));
   gtk_tree_sortable_set_sort_column_id (GTK_TREE_SORTABLE (store),
                                         COLUMN_TOTAL, GTK_SORT_DESCENDING);
-  sysprof_memory_page_expand_descendants (self);
+  sysprof_memprof_page_expand_descendants (self);
 
   g_clear_object (&store);
 }
 
 /**
- * sysprof_memory_page_screenshot:
- * @self: A #SysprofMemoryPage.
+ * sysprof_memprof_page_screenshot:
+ * @self: A #SysprofMemprofPage.
  *
  * This function will generate a text representation of the descendants tree.
  * This is useful if you want to include various profiling information in a
@@ -1193,16 +1193,16 @@ sysprof_memory_page_update_descendants (SysprofMemoryPage *self,
  *   with g_free().
  */
 gchar *
-sysprof_memory_page_screenshot (SysprofMemoryPage *self)
+sysprof_memprof_page_screenshot (SysprofMemprofPage *self)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
   GtkTreeView *tree_view;
   GtkTreeModel *model;
   GtkTreePath *tree_path;
   GString *str;
   GtkTreeIter iter;
 
-  g_return_val_if_fail (SYSPROF_IS_MEMORY_PAGE (self), NULL);
+  g_return_val_if_fail (SYSPROF_IS_MEMPROF_PAGE (self), NULL);
 
   tree_view = priv->descendants_view;
 
@@ -1260,13 +1260,13 @@ sysprof_memory_page_screenshot (SysprofMemoryPage *self)
 }
 
 guint
-sysprof_memory_page_get_n_functions (SysprofMemoryPage *self)
+sysprof_memprof_page_get_n_functions (SysprofMemprofPage *self)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
   GtkTreeModel *model;
   guint ret = 0;
 
-  g_return_val_if_fail (SYSPROF_IS_MEMORY_PAGE (self), 0);
+  g_return_val_if_fail (SYSPROF_IS_MEMPROF_PAGE (self), 0);
 
   if (NULL != (model = gtk_tree_view_get_model (priv->functions_view)))
     ret = gtk_tree_model_iter_n_children (model, NULL);
@@ -1275,12 +1275,12 @@ sysprof_memory_page_get_n_functions (SysprofMemoryPage *self)
 }
 
 void
-_sysprof_memory_page_set_loading (SysprofMemoryPage *self,
+_sysprof_memprof_page_set_loading (SysprofMemprofPage *self,
                                   gboolean           loading)
 {
-  SysprofMemoryPagePrivate *priv = sysprof_memory_page_get_instance_private (self);
+  SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
 
-  g_return_if_fail (SYSPROF_IS_MEMORY_PAGE (self));
+  g_return_if_fail (SYSPROF_IS_MEMPROF_PAGE (self));
 
   if (loading)
     priv->loading++;
