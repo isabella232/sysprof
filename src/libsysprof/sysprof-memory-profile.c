@@ -27,17 +27,21 @@
 #include "sysprof-memory-profile.h"
 
 #include "rax.h"
+#include "../stackstash.h"
 
 struct _SysprofMemoryProfile
 {
   GObject               parent_instance;
+  SysprofSelection     *selection;
   SysprofCaptureReader *reader;
-  rax *rax;
+  StackStash           *stash;
+  rax                  *rax;
 };
 
 typedef struct
 {
   SysprofCaptureReader *reader;
+  StackStash *stash;
   rax *rax;
 } Generate;
 
@@ -46,11 +50,20 @@ static void profile_iface_init (SysprofProfileInterface *iface);
 G_DEFINE_TYPE_WITH_CODE (SysprofMemoryProfile, sysprof_memory_profile, G_TYPE_OBJECT,
                          G_IMPLEMENT_INTERFACE (SYSPROF_TYPE_PROFILE, profile_iface_init))
 
+enum {
+  PROP_0,
+  PROP_SELECTION,
+  N_PROPS
+};
+
+static GParamSpec *properties[N_PROPS];
+
 static void
 generate_free (Generate *g)
 {
   g_clear_pointer (&g->reader, sysprof_capture_reader_unref);
   g_clear_pointer (&g->rax, raxFree);
+  g_clear_pointer (&g->stash, stack_stash_unref);
   g_slice_free (Generate, g);
 }
 
@@ -61,8 +74,48 @@ sysprof_memory_profile_finalize (GObject *object)
 
   g_clear_pointer (&self->reader, sysprof_capture_reader_unref);
   g_clear_pointer (&self->rax, raxFree);
+  g_clear_pointer (&self->stash, stack_stash_unref);
+  g_clear_object (&self->selection);
 
   G_OBJECT_CLASS (sysprof_memory_profile_parent_class)->finalize (object);
+}
+
+static void
+sysprof_memory_profile_get_property (GObject    *object,
+                                     guint       prop_id,
+                                     GValue     *value,
+                                     GParamSpec *pspec)
+{
+  SysprofMemoryProfile *self = SYSPROF_MEMORY_PROFILE (object);
+
+  switch (prop_id)
+    {
+    case PROP_SELECTION:
+      g_value_set_object (value, self->selection);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+    }
+}
+
+static void
+sysprof_memory_profile_set_property (GObject      *object,
+                                     guint         prop_id,
+                                     const GValue *value,
+                                     GParamSpec   *pspec)
+{
+  SysprofMemoryProfile *self = SYSPROF_MEMORY_PROFILE (object);
+
+  switch (prop_id)
+    {
+    case PROP_SELECTION:
+      self->selection = g_value_dup_object (value);
+      break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+    }
 }
 
 static void
@@ -71,6 +124,17 @@ sysprof_memory_profile_class_init (SysprofMemoryProfileClass *klass)
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
   object_class->finalize = sysprof_memory_profile_finalize;
+  object_class->get_property = sysprof_memory_profile_get_property;
+  object_class->set_property = sysprof_memory_profile_set_property;
+
+  properties [PROP_SELECTION] =
+    g_param_spec_object ("selection",
+                         "Selection",
+                         "The selection for filtering the callgraph",
+                         SYSPROF_TYPE_SELECTION,
+                         (G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 }
 
 static void
@@ -136,6 +200,11 @@ cursor_foreach_cb (const SysprofCaptureFrame *frame,
                  sizeof ev->alloc_addr,
                  (gpointer)ev->alloc_size,
                  NULL);
+
+      stack_stash_add_trace (g->stash,
+                             ev->addrs,
+                             ev->n_addrs,
+                             ev->alloc_size);
     }
   else if (frame->type == SYSPROF_CAPTURE_FRAME_MEMORY_FREE)
     {
@@ -199,6 +268,7 @@ sysprof_memory_profile_generate (SysprofProfile      *profile,
   g = g_slice_new0 (Generate);
   g->reader = sysprof_capture_reader_copy (self->reader);
   g->rax = raxNew ();
+  g->stash = stack_stash_new (NULL);
 
   g_task_set_task_data (task, g, (GDestroyNotify) generate_free);
   g_task_run_in_thread (task, sysprof_memory_profile_generate_worker);
@@ -216,7 +286,13 @@ sysprof_memory_profile_generate_finish (SysprofProfile  *profile,
   g_assert (G_IS_TASK (result));
 
   if ((g = g_task_get_task_data (G_TASK (result))))
-    self->rax = g_steal_pointer (&g->rax);
+    {
+      g_clear_pointer (&self->rax, raxFree);
+      g_clear_pointer (&self->stash, stack_stash_unref);
+
+      self->rax = g_steal_pointer (&g->rax);
+      self->stash = g_steal_pointer (&g->stash);
+    }
 
   return g_task_propagate_boolean (G_TASK (result), error);
 }
@@ -233,4 +309,37 @@ gpointer
 sysprof_memory_profile_get_native (SysprofMemoryProfile *self)
 {
   return self->rax;
+}
+
+gpointer
+sysprof_memory_profile_get_stash (SysprofMemoryProfile *self)
+{
+  return self->stash;
+}
+
+gboolean
+sysprof_memory_profile_is_empty (SysprofMemoryProfile *self)
+{
+  StackNode *root;
+
+  g_return_val_if_fail (SYSPROF_IS_MEMORY_PROFILE (self), FALSE);
+
+  return (self->stash == NULL ||
+          !(root = stack_stash_get_root (self->stash)) ||
+          !root->total);
+}
+
+GQuark
+sysprof_memory_profile_get_tag (SysprofMemoryProfile *self,
+                                const gchar          *symbol)
+{
+  return 0;
+}
+
+SysprofProfile *
+sysprof_memory_profile_new_with_selection (SysprofSelection *selection)
+{
+  return g_object_new (SYSPROF_TYPE_MEMORY_PROFILE,
+                       "selection", selection,
+                       NULL);
 }

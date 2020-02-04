@@ -27,6 +27,7 @@
 #include "sysprof-version-macros.h"
 
 #include "sysprof-profile.h"
+#include "sysprof-selection.h"
 
 G_BEGIN_DECLS
 
@@ -36,8 +37,17 @@ SYSPROF_AVAILABLE_IN_ALL
 G_DECLARE_FINAL_TYPE (SysprofMemoryProfile, sysprof_memory_profile, SYSPROF, MEMORY_PROFILE, GObject)
 
 SYSPROF_AVAILABLE_IN_3_36
-SysprofProfile *sysprof_memory_profile_new        (void);
+SysprofProfile *sysprof_memory_profile_new                (void);
 SYSPROF_AVAILABLE_IN_3_36
-gpointer        sysprof_memory_profile_get_native (SysprofMemoryProfile *self);
+SysprofProfile *sysprof_memory_profile_new_with_selection (SysprofSelection *selection);
+SYSPROF_AVAILABLE_IN_3_36
+gpointer        sysprof_memory_profile_get_native         (SysprofMemoryProfile *self);
+SYSPROF_AVAILABLE_IN_3_36
+gpointer        sysprof_memory_profile_get_stash          (SysprofMemoryProfile *self);
+SYSPROF_AVAILABLE_IN_3_36
+gboolean        sysprof_memory_profile_is_empty           (SysprofMemoryProfile *self);
+SYSPROF_AVAILABLE_IN_3_36
+GQuark          sysprof_memory_profile_get_tag            (SysprofMemoryProfile *self,
+                                                           const gchar          *symbol);
 
 G_END_DECLS
