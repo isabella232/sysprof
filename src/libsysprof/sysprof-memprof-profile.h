@@ -1,4 +1,4 @@
-/* sysprof-memory-profile.h
+/* sysprof-memprof-profile.h
  *
  * Copyright 2020 Christian Hergert <chergert@redhat.com>
  *
@@ -31,23 +31,23 @@
 
 G_BEGIN_DECLS
 
-#define SYSPROF_TYPE_MEMORY_PROFILE (sysprof_memory_profile_get_type())
+#define SYSPROF_TYPE_MEMPROF_PROFILE (sysprof_memprof_profile_get_type())
 
 SYSPROF_AVAILABLE_IN_ALL
-G_DECLARE_FINAL_TYPE (SysprofMemoryProfile, sysprof_memory_profile, SYSPROF, MEMORY_PROFILE, GObject)
+G_DECLARE_FINAL_TYPE (SysprofMemprofProfile, sysprof_memprof_profile, SYSPROF, MEMPROF_PROFILE, GObject)
 
 SYSPROF_AVAILABLE_IN_3_36
-SysprofProfile *sysprof_memory_profile_new                (void);
+SysprofProfile *sysprof_memprof_profile_new                (void);
 SYSPROF_AVAILABLE_IN_3_36
-SysprofProfile *sysprof_memory_profile_new_with_selection (SysprofSelection *selection);
+SysprofProfile *sysprof_memprof_profile_new_with_selection (SysprofSelection *selection);
 SYSPROF_AVAILABLE_IN_3_36
-gpointer        sysprof_memory_profile_get_native         (SysprofMemoryProfile *self);
+gpointer        sysprof_memprof_profile_get_native         (SysprofMemprofProfile *self);
 SYSPROF_AVAILABLE_IN_3_36
-gpointer        sysprof_memory_profile_get_stash          (SysprofMemoryProfile *self);
+gpointer        sysprof_memprof_profile_get_stash          (SysprofMemprofProfile *self);
 SYSPROF_AVAILABLE_IN_3_36
-gboolean        sysprof_memory_profile_is_empty           (SysprofMemoryProfile *self);
+gboolean        sysprof_memprof_profile_is_empty           (SysprofMemprofProfile *self);
 SYSPROF_AVAILABLE_IN_3_36
-GQuark          sysprof_memory_profile_get_tag            (SysprofMemoryProfile *self,
-                                                           const gchar          *symbol);
+GQuark          sysprof_memprof_profile_get_tag            (SysprofMemprofProfile *self,
+                                                            const gchar          *symbol);
 
 G_END_DECLS

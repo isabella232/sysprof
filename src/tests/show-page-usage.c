@@ -58,7 +58,7 @@ generate_cb (GObject      *object,
   rax *r;
   gpointer k,v;
 
-  g_assert (SYSPROF_IS_MEMORY_PROFILE (profile));
+  g_assert (SYSPROF_IS_MEMPROF_PROFILE (profile));
   g_assert (G_IS_ASYNC_RESULT (result));
 
   if (!sysprof_profile_generate_finish (profile, result, &error))
@@ -67,7 +67,7 @@ generate_cb (GObject      *object,
       exit (EXIT_FAILURE);
     }
 
-  r = sysprof_memory_profile_get_native (SYSPROF_MEMORY_PROFILE (profile));
+  r = sysprof_memprof_profile_get_native (SYSPROF_MEMPROF_PROFILE (profile));
   seen = g_hash_table_new (NULL, NULL);
 
   raxStart (&it, r);
@@ -183,7 +183,7 @@ main (gint   argc,
       return EXIT_FAILURE;
     }
 
-  memprof = sysprof_memory_profile_new ();
+  memprof = sysprof_memprof_profile_new ();
   sysprof_profile_set_reader (memprof, reader);
   sysprof_profile_generate (memprof, NULL, generate_cb, NULL);
 

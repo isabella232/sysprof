@@ -50,7 +50,7 @@
 
 typedef struct
 {
-  SysprofMemoryProfile  *profile;
+  SysprofMemprofProfile    *profile;
 
   GtkTreeView              *callers_view;
   GtkTreeView              *functions_view;
@@ -107,7 +107,7 @@ sysprof_memprof_page_get_profile_size (SysprofMemprofPage *self)
   if (priv->profile == NULL)
     return 0;
 
-  if (NULL == (stash = sysprof_memory_profile_get_stash (priv->profile)))
+  if (NULL == (stash = sysprof_memprof_profile_get_stash (priv->profile)))
     return 0;
 
   for (node = stack_stash_get_root (stash); node != NULL; node = node->siblings)
@@ -153,7 +153,7 @@ build_functions_store (StackNode *node,
 
 static void
 sysprof_memprof_page_load (SysprofMemprofPage    *self,
-                          SysprofMemoryProfile *profile)
+                          SysprofMemprofProfile *profile)
 {
   SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
   GtkListStore *functions;
@@ -166,7 +166,7 @@ sysprof_memprof_page_load (SysprofMemprofPage    *self,
   } state = { 0 };
 
   g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
-  g_assert (SYSPROF_IS_MEMORY_PROFILE (profile));
+  g_assert (SYSPROF_IS_MEMPROF_PROFILE (profile));
 
   /*
    * TODO: This is probably the type of thing we want to do off the main
@@ -180,10 +180,10 @@ sysprof_memprof_page_load (SysprofMemprofPage    *self,
   if (!g_set_object (&priv->profile, profile))
     return;
 
-  if (sysprof_memory_profile_is_empty (profile))
+  if (sysprof_memprof_profile_is_empty (profile))
     return;
 
-  stash = sysprof_memory_profile_get_stash (profile);
+  stash = sysprof_memprof_profile_get_stash (profile);
 
   for (n = stack_stash_get_root (stash); n; n = n->siblings)
     state.profile_size += n->total;
@@ -230,7 +230,7 @@ sysprof_memprof_page_unload (SysprofMemprofPage *self)
   SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
 
   g_assert (SYSPROF_IS_MEMPROF_PAGE (self));
-  g_assert (SYSPROF_IS_MEMORY_PROFILE (priv->profile));
+  g_assert (SYSPROF_IS_MEMPROF_PROFILE (priv->profile));
 
   g_queue_clear (priv->history);
   g_clear_object (&priv->profile);
@@ -246,9 +246,9 @@ sysprof_memprof_page_unload (SysprofMemprofPage *self)
 /**
  * sysprof_memprof_page_get_profile:
  *
- * Returns: (transfer none): An #SysprofMemoryProfile.
+ * Returns: (transfer none): An #SysprofMemprofProfile.
  */
-SysprofMemoryProfile *
+SysprofMemprofProfile *
 sysprof_memprof_page_get_profile (SysprofMemprofPage *self)
 {
   SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
@@ -260,12 +260,12 @@ sysprof_memprof_page_get_profile (SysprofMemprofPage *self)
 
 void
 sysprof_memprof_page_set_profile (SysprofMemprofPage    *self,
-                                 SysprofMemoryProfile *profile)
+                                  SysprofMemprofProfile *profile)
 {
   SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
 
   g_return_if_fail (SYSPROF_IS_MEMPROF_PAGE (self));
-  g_return_if_fail (!profile || SYSPROF_IS_MEMORY_PROFILE (profile));
+  g_return_if_fail (!profile || SYSPROF_IS_MEMPROF_PROFILE (profile));
 
   if (profile != priv->profile)
     {
@@ -643,7 +643,7 @@ sysprof_memprof_page_tag_data_func (GtkTreeViewColumn *column,
     {
       GQuark tag;
 
-      tag = sysprof_memory_profile_get_tag (priv->profile, GSIZE_TO_POINTER (node->data));
+      tag = sysprof_memprof_profile_get_tag (priv->profile, GSIZE_TO_POINTER (node->data));
       if (tag != 0)
         str = g_quark_to_string (tag);
     }
@@ -789,7 +789,7 @@ sysprof_memprof_page_generate_cb (GObject      *object,
   if (!sysprof_profile_generate_finish (profile, result, &error))
     g_task_return_error (task, g_steal_pointer (&error));
   else
-    sysprof_memprof_page_set_profile (self, SYSPROF_MEMORY_PROFILE (profile));
+    sysprof_memprof_page_set_profile (self, SYSPROF_MEMPROF_PROFILE (profile));
 }
 
 static void
@@ -816,7 +816,7 @@ sysprof_memprof_page_load_async (SysprofPage             *page,
 
   copy = sysprof_capture_reader_copy (reader);
 
-  profile = sysprof_memory_profile_new_with_selection (selection);
+  profile = sysprof_memprof_profile_new_with_selection (selection);
   sysprof_profile_set_reader (profile, reader);
   sysprof_profile_generate (profile,
                             cancellable,
@@ -907,7 +907,7 @@ sysprof_memprof_page_class_init (SysprofMemprofPageClass *klass)
     g_param_spec_object ("profile",
                          "Profile",
                          "The callgraph profile to view",
-                         SYSPROF_TYPE_MEMORY_PROFILE,
+                         SYSPROF_TYPE_MEMPROF_PROFILE,
                          (G_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_properties (object_class, N_PROPS, properties);
@@ -1160,7 +1160,7 @@ sysprof_memprof_page_update_descendants (SysprofMemprofPage *self,
   {
     StackStash *stash;
 
-    stash = sysprof_memory_profile_get_stash (priv->profile);
+    stash = sysprof_memprof_profile_get_stash (priv->profile);
     if (stash != NULL)
       {
         Descendant *tree;

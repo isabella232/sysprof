@@ -1,4 +1,4 @@
-/* sysprof-memory-profile.c
+/* sysprof-memprof-profile.c
  *
  * Copyright 2020 Christian Hergert <chergert@redhat.com>
  *
@@ -18,7 +18,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#define G_LOG_DOMAIN "sysprof-memory-profile"
+#define G_LOG_DOMAIN "sysprof-memprof-profile"
 
 #include "config.h"
 
@@ -27,7 +27,7 @@
 #include "sysprof-capture-symbol-resolver.h"
 #include "sysprof-elf-symbol-resolver.h"
 #include "sysprof-kernel-symbol-resolver.h"
-#include "sysprof-memory-profile.h"
+#include "sysprof-memprof-profile.h"
 #include "sysprof-symbol-resolver.h"
 
 #include "rax.h"
@@ -45,7 +45,7 @@ typedef struct
   GArray               *resolved;
 } Generate;
 
-struct _SysprofMemoryProfile
+struct _SysprofMemprofProfile
 {
   GObject               parent_instance;
   SysprofSelection     *selection;
@@ -55,7 +55,7 @@ struct _SysprofMemoryProfile
 
 static void profile_iface_init (SysprofProfileInterface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (SysprofMemoryProfile, sysprof_memory_profile, G_TYPE_OBJECT,
+G_DEFINE_TYPE_WITH_CODE (SysprofMemprofProfile, sysprof_memprof_profile, G_TYPE_OBJECT,
                          G_IMPLEMENT_INTERFACE (SYSPROF_TYPE_PROFILE, profile_iface_init))
 
 enum {
@@ -93,24 +93,24 @@ generate_unref (Generate *g)
 }
 
 static void
-sysprof_memory_profile_finalize (GObject *object)
+sysprof_memprof_profile_finalize (GObject *object)
 {
-  SysprofMemoryProfile *self = (SysprofMemoryProfile *)object;
+  SysprofMemprofProfile *self = (SysprofMemprofProfile *)object;
 
   g_clear_pointer (&self->g, generate_unref);
   g_clear_pointer (&self->reader, sysprof_capture_reader_unref);
   g_clear_object (&self->selection);
 
-  G_OBJECT_CLASS (sysprof_memory_profile_parent_class)->finalize (object);
+  G_OBJECT_CLASS (sysprof_memprof_profile_parent_class)->finalize (object);
 }
 
 static void
-sysprof_memory_profile_get_property (GObject    *object,
-                                     guint       prop_id,
-                                     GValue     *value,
-                                     GParamSpec *pspec)
+sysprof_memprof_profile_get_property (GObject    *object,
+                                      guint       prop_id,
+                                      GValue     *value,
+                                      GParamSpec *pspec)
 {
-  SysprofMemoryProfile *self = SYSPROF_MEMORY_PROFILE (object);
+  SysprofMemprofProfile *self = SYSPROF_MEMPROF_PROFILE (object);
 
   switch (prop_id)
     {
@@ -124,12 +124,12 @@ sysprof_memory_profile_get_property (GObject    *object,
 }
 
 static void
-sysprof_memory_profile_set_property (GObject      *object,
-                                     guint         prop_id,
-                                     const GValue *value,
-                                     GParamSpec   *pspec)
+sysprof_memprof_profile_set_property (GObject      *object,
+                                      guint         prop_id,
+                                      const GValue *value,
+                                      GParamSpec   *pspec)
 {
-  SysprofMemoryProfile *self = SYSPROF_MEMORY_PROFILE (object);
+  SysprofMemprofProfile *self = SYSPROF_MEMPROF_PROFILE (object);
 
   switch (prop_id)
     {
@@ -143,13 +143,13 @@ sysprof_memory_profile_set_property (GObject      *object,
 }
 
 static void
-sysprof_memory_profile_class_init (SysprofMemoryProfileClass *klass)
+sysprof_memprof_profile_class_init (SysprofMemprofProfileClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
-  object_class->finalize = sysprof_memory_profile_finalize;
-  object_class->get_property = sysprof_memory_profile_get_property;
-  object_class->set_property = sysprof_memory_profile_set_property;
+  object_class->finalize = sysprof_memprof_profile_finalize;
+  object_class->get_property = sysprof_memprof_profile_get_property;
+  object_class->set_property = sysprof_memprof_profile_set_property;
 
   properties [PROP_SELECTION] =
     g_param_spec_object ("selection",
@@ -162,23 +162,23 @@ sysprof_memory_profile_class_init (SysprofMemoryProfileClass *klass)
 }
 
 static void
-sysprof_memory_profile_init (SysprofMemoryProfile *self)
+sysprof_memprof_profile_init (SysprofMemprofProfile *self)
 {
 }
 
 SysprofProfile *
-sysprof_memory_profile_new (void)
+sysprof_memprof_profile_new (void)
 {
-  return g_object_new (SYSPROF_TYPE_MEMORY_PROFILE, NULL);
+  return g_object_new (SYSPROF_TYPE_MEMPROF_PROFILE, NULL);
 }
 
 static void
-sysprof_memory_profile_set_reader (SysprofProfile       *profile,
-                                   SysprofCaptureReader *reader)
+sysprof_memprof_profile_set_reader (SysprofProfile       *profile,
+                                    SysprofCaptureReader *reader)
 {
-  SysprofMemoryProfile *self = (SysprofMemoryProfile *)profile;
+  SysprofMemprofProfile *self = (SysprofMemprofProfile *)profile;
 
-  g_assert (SYSPROF_IS_MEMORY_PROFILE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PROFILE (self));
   g_assert (reader != NULL);
 
   if (reader != self->reader)
@@ -308,10 +308,10 @@ cursor_foreach_cb (const SysprofCaptureFrame *frame,
 }
 
 static void
-sysprof_memory_profile_generate_worker (GTask        *task,
-                                        gpointer      source_object,
-                                        gpointer      task_data,
-                                        GCancellable *cancellable)
+sysprof_memprof_profile_generate_worker (GTask        *task,
+                                         gpointer      source_object,
+                                         gpointer      task_data,
+                                         GCancellable *cancellable)
 {
   SysprofCaptureCursor *cursor;
   Generate *g = task_data;
@@ -346,20 +346,20 @@ sysprof_memory_profile_generate_worker (GTask        *task,
 }
 
 static void
-sysprof_memory_profile_generate (SysprofProfile      *profile,
-                                 GCancellable        *cancellable,
-                                 GAsyncReadyCallback  callback,
-                                 gpointer             user_data)
+sysprof_memprof_profile_generate (SysprofProfile      *profile,
+                                  GCancellable        *cancellable,
+                                  GAsyncReadyCallback  callback,
+                                  gpointer             user_data)
 {
-  SysprofMemoryProfile *self = (SysprofMemoryProfile *)profile;
+  SysprofMemprofProfile *self = (SysprofMemprofProfile *)profile;
   g_autoptr(GTask) task = NULL;
   Generate *g;
 
-  g_assert (SYSPROF_IS_MEMORY_PROFILE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PROFILE (self));
   g_assert (!cancellable || G_IS_CANCELLABLE (cancellable));
 
   task = g_task_new (self, cancellable, callback, user_data);
-  g_task_set_source_tag (task, sysprof_memory_profile_generate);
+  g_task_set_source_tag (task, sysprof_memprof_profile_generate);
 
   if (self->reader == NULL)
     {
@@ -385,17 +385,17 @@ sysprof_memory_profile_generate (SysprofProfile      *profile,
   g_ptr_array_add (g->resolvers, sysprof_elf_symbol_resolver_new ());
 
   g_task_set_task_data (task, g, (GDestroyNotify) generate_unref);
-  g_task_run_in_thread (task, sysprof_memory_profile_generate_worker);
+  g_task_run_in_thread (task, sysprof_memprof_profile_generate_worker);
 }
 
 static gboolean
-sysprof_memory_profile_generate_finish (SysprofProfile  *profile,
-                                        GAsyncResult    *result,
-                                        GError         **error)
+sysprof_memprof_profile_generate_finish (SysprofProfile  *profile,
+                                         GAsyncResult    *result,
+                                         GError         **error)
 {
-  SysprofMemoryProfile *self = (SysprofMemoryProfile *)profile;
+  SysprofMemprofProfile *self = (SysprofMemprofProfile *)profile;
 
-  g_assert (SYSPROF_IS_MEMORY_PROFILE (self));
+  g_assert (SYSPROF_IS_MEMPROF_PROFILE (self));
   g_assert (G_IS_TASK (result));
 
   g_clear_pointer (&self->g, generate_unref);
@@ -413,15 +413,15 @@ sysprof_memory_profile_generate_finish (SysprofProfile  *profile,
 static void
 profile_iface_init (SysprofProfileInterface *iface)
 {
-  iface->set_reader = sysprof_memory_profile_set_reader;
-  iface->generate = sysprof_memory_profile_generate;
-  iface->generate_finish = sysprof_memory_profile_generate_finish;
+  iface->set_reader = sysprof_memprof_profile_set_reader;
+  iface->generate = sysprof_memprof_profile_generate;
+  iface->generate_finish = sysprof_memprof_profile_generate_finish;
 }
 
 gpointer
-sysprof_memory_profile_get_native (SysprofMemoryProfile *self)
+sysprof_memprof_profile_get_native (SysprofMemprofProfile *self)
 {
-  g_return_val_if_fail (SYSPROF_IS_MEMORY_PROFILE (self), NULL);
+  g_return_val_if_fail (SYSPROF_IS_MEMPROF_PROFILE (self), NULL);
 
   if (self->g != NULL)
     return self->g->rax;
@@ -430,9 +430,9 @@ sysprof_memory_profile_get_native (SysprofMemoryProfile *self)
 }
 
 gpointer
-sysprof_memory_profile_get_stash (SysprofMemoryProfile *self)
+sysprof_memprof_profile_get_stash (SysprofMemprofProfile *self)
 {
-  g_return_val_if_fail (SYSPROF_IS_MEMORY_PROFILE (self), NULL);
+  g_return_val_if_fail (SYSPROF_IS_MEMPROF_PROFILE (self), NULL);
 
   if (self->g != NULL)
     return self->g->stash;
@@ -441,11 +441,11 @@ sysprof_memory_profile_get_stash (SysprofMemoryProfile *self)
 }
 
 gboolean
-sysprof_memory_profile_is_empty (SysprofMemoryProfile *self)
+sysprof_memprof_profile_is_empty (SysprofMemprofProfile *self)
 {
   StackNode *root;
 
-  g_return_val_if_fail (SYSPROF_IS_MEMORY_PROFILE (self), FALSE);
+  g_return_val_if_fail (SYSPROF_IS_MEMPROF_PROFILE (self), FALSE);
 
   return (self->g == NULL ||
           self->g->stash == NULL ||
@@ -454,10 +454,10 @@ sysprof_memory_profile_is_empty (SysprofMemoryProfile *self)
 }
 
 GQuark
-sysprof_memory_profile_get_tag (SysprofMemoryProfile *self,
-                                const gchar          *symbol)
+sysprof_memprof_profile_get_tag (SysprofMemprofProfile *self,
+                                 const gchar          *symbol)
 {
-  g_return_val_if_fail (SYSPROF_IS_MEMORY_PROFILE (self), 0);
+  g_return_val_if_fail (SYSPROF_IS_MEMPROF_PROFILE (self), 0);
 
   if (self->g != NULL)
     return GPOINTER_TO_SIZE (g_hash_table_lookup (self->g->tags, symbol));
@@ -466,9 +466,9 @@ sysprof_memory_profile_get_tag (SysprofMemoryProfile *self,
 }
 
 SysprofProfile *
-sysprof_memory_profile_new_with_selection (SysprofSelection *selection)
+sysprof_memprof_profile_new_with_selection (SysprofSelection *selection)
 {
-  return g_object_new (SYSPROF_TYPE_MEMORY_PROFILE,
+  return g_object_new (SYSPROF_TYPE_MEMPROF_PROFILE,
                        "selection", selection,
                        NULL);
 }

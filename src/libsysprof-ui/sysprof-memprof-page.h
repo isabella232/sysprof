@@ -41,11 +41,11 @@ struct _SysprofMemprofPageClass
   gpointer _reserved[16];
 };
 
-GtkWidget            *sysprof_memprof_page_new             (void);
-SysprofMemoryProfile *sysprof_memprof_page_get_profile     (SysprofMemprofPage    *self);
-void                  sysprof_memprof_page_set_profile     (SysprofMemprofPage    *self,
-                                                           SysprofMemoryProfile *profile);
-gchar                *sysprof_memprof_page_screenshot      (SysprofMemprofPage    *self);
-guint                 sysprof_memprof_page_get_n_functions (SysprofMemprofPage    *self);
+GtkWidget             *sysprof_memprof_page_new             (void);
+SysprofMemprofProfile *sysprof_memprof_page_get_profile     (SysprofMemprofPage    *self);
+void                   sysprof_memprof_page_set_profile     (SysprofMemprofPage    *self,
+                                                             SysprofMemprofProfile *profile);
+gchar                 *sysprof_memprof_page_screenshot      (SysprofMemprofPage    *self);
+guint                  sysprof_memprof_page_get_n_functions (SysprofMemprofPage    *self);
 
 G_END_DECLS
