@@ -4,8 +4,13 @@ libsysprof_memory_preload_deps = [
   libunwind_dep,
 ]
 
-libsysprof_memory_preload = shared_library('sysprof-memory-collector',
-  ['sysprof-memory-collector.c'],
-  dependencies: libsysprof_memory_preload_deps,
-)
+libsysprof_memory_preload_sources = [
+  'sysprof-memory-collector.c',
+]
 
+libsysprof_memory_preload = shared_library('sysprof-memory-@0@'.format(libsysprof_api_version),
+  libsysprof_memory_preload_sources,
+  dependencies: libsysprof_memory_preload_deps,
+       install: true,
+   install_dir: get_option('libexecdir'),
+)
