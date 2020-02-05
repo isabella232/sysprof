@@ -40,6 +40,7 @@ typedef struct
   GPtrArray            *resolvers;
   GStringChunk         *symbols;
   GHashTable           *tags;
+  GHashTable           *cmdlines;
   StackStash           *stash;
   StackStash           *building;
   rax                  *rax;
@@ -78,6 +79,7 @@ generate_free (Generate *g)
   g_clear_pointer (&g->symbols, g_string_chunk_free);
   g_clear_pointer (&g->tags, g_hash_table_unref);
   g_clear_pointer (&g->resolved, g_array_unref);
+  g_clear_pointer (&g->cmdlines, g_hash_table_unref);
   g_clear_object (&g->selection);
 }
 
@@ -195,6 +197,7 @@ create_cursor (SysprofCaptureReader *reader)
   static SysprofCaptureFrameType types[] = {
     SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC,
     SYSPROF_CAPTURE_FRAME_MEMORY_FREE,
+    SYSPROF_CAPTURE_FRAME_PROCESS,
   };
   SysprofCaptureCursor *cursor;
   SysprofCaptureCondition *cond;
@@ -214,7 +217,8 @@ cursor_foreach_cb (const SysprofCaptureFrame *frame,
 
   g_assert (frame != NULL);
   g_assert (frame->type == SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC ||
-            frame->type == SYSPROF_CAPTURE_FRAME_MEMORY_FREE);
+            frame->type == SYSPROF_CAPTURE_FRAME_MEMORY_FREE ||
+            frame->type == SYSPROF_CAPTURE_FRAME_PROCESS);
 
   /* Short-circuit if we don't care about this frame */
   if (!sysprof_selection_contains (g->selection, frame->time))
@@ -233,13 +237,26 @@ cursor_foreach_cb (const SysprofCaptureFrame *frame,
       return TRUE;
     }
 
+  if (frame->type == SYSPROF_CAPTURE_FRAME_PROCESS)
+    {
+      const SysprofCaptureProcess *pr = (const SysprofCaptureProcess *)frame;
+      g_autofree gchar *cmdline = g_strdup_printf ("[%s]", pr->cmdline);
+
+      g_hash_table_insert (g->cmdlines,
+                           GINT_TO_POINTER (frame->pid),
+                           (gchar *)g_string_chunk_insert_const (g->symbols, cmdline));
+
+      return TRUE;
+    }
+
   /* Handle memory allocations */
   if (frame->type == SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC)
     {
       const SysprofCaptureMemoryAlloc *ev = (const SysprofCaptureMemoryAlloc *)frame;
       SysprofAddressContext last_context = SYSPROF_ADDRESS_CONTEXT_NONE;
+      const gchar *cmdline;
       StackNode *node;
-      guint len = 0;
+      guint len = 5;
 
       raxInsert (g->rax,
                  (guint8 *)&ev->alloc_addr,
@@ -304,6 +321,11 @@ cursor_foreach_cb (const SysprofCaptureFrame *frame,
             g_array_index (g->resolved, SysprofAddress, len++) = POINTER_TO_U64 (symbol);
         }
 
+      if ((cmdline = g_hash_table_lookup (g->cmdlines, GINT_TO_POINTER (frame->pid))))
+        g_array_index (g->resolved, guint64, len++) = POINTER_TO_U64 (cmdline);
+
+      g_array_index (g->resolved, guint64, len++) = POINTER_TO_U64 ("[Everything]");
+
       stack_stash_add_trace (g->stash,
                              (gpointer)g->resolved->data,
                              len,
@@ -347,6 +369,7 @@ sysprof_memprof_profile_generate_worker (GTask        *task,
   g_clear_pointer (&g->resolvers, g_ptr_array_unref);
   g_clear_pointer (&g->reader, sysprof_capture_reader_unref);
   g_clear_pointer (&g->building, stack_stash_unref);
+  g_clear_pointer (&g->cmdlines, g_hash_table_unref);
   g_clear_object (&g->selection);
 
   g_task_return_boolean (task, TRUE);
@@ -380,6 +403,7 @@ sysprof_memprof_profile_generate (SysprofProfile      *profile,
   g = g_atomic_rc_box_new0 (Generate);
   g->reader = sysprof_capture_reader_copy (self->reader);
   g->selection = sysprof_selection_copy (self->selection);
+  g->cmdlines = g_hash_table_new (NULL, NULL);
   g->rax = raxNew ();
   g->stash = stack_stash_new (NULL);
   g->building = stack_stash_new (NULL);
