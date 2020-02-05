@@ -41,6 +41,7 @@ sysprof_memprof_source_modify_spawn (SysprofSource    *source,
   parent_iface->modify_spawn (source, spawnable);
 
 #ifdef __linux__
+  sysprof_spawnable_setenv (spawnable, "G_SLICE", "always-malloc");
   sysprof_spawnable_setenv (spawnable,
                             "LD_PRELOAD",
                             PACKAGE_LIBEXECDIR"/libsysprof-memory-"API_VERSION_S".so");
