@@ -79,7 +79,6 @@ generate_free (Generate *g)
   g_clear_pointer (&g->tags, g_hash_table_unref);
   g_clear_pointer (&g->resolved, g_array_unref);
   g_clear_object (&g->selection);
-  g_slice_free (Generate, g);
 }
 
 static Generate *
