@@ -41,6 +41,7 @@ typedef struct
   GStringChunk         *symbols;
   GHashTable           *tags;
   StackStash           *stash;
+  StackStash           *building;
   rax                  *rax;
   GArray               *resolved;
 } Generate;
@@ -72,6 +73,7 @@ generate_free (Generate *g)
   g_clear_pointer (&g->reader, sysprof_capture_reader_unref);
   g_clear_pointer (&g->rax, raxFree);
   g_clear_pointer (&g->stash, stack_stash_unref);
+  g_clear_pointer (&g->building, stack_stash_unref);
   g_clear_pointer (&g->resolvers, g_ptr_array_unref);
   g_clear_pointer (&g->symbols, g_string_chunk_free);
   g_clear_pointer (&g->tags, g_hash_table_unref);
@@ -238,7 +240,7 @@ cursor_foreach_cb (const SysprofCaptureFrame *frame,
       const SysprofCaptureMemoryAlloc *ev = (const SysprofCaptureMemoryAlloc *)frame;
       SysprofAddressContext last_context = SYSPROF_ADDRESS_CONTEXT_NONE;
       StackNode *node;
-      guint len = 5;
+      guint len = 0;
 
       raxInsert (g->rax,
                  (guint8 *)&ev->alloc_addr,
@@ -246,7 +248,7 @@ cursor_foreach_cb (const SysprofCaptureFrame *frame,
                  (gpointer)ev->alloc_size,
                  NULL);
 
-      node = stack_stash_add_trace (g->stash, ev->addrs, ev->n_addrs, ev->alloc_size);
+      node = stack_stash_add_trace (g->building, ev->addrs, ev->n_addrs, ev->alloc_size);
 
       for (const StackNode *iter = node; iter != NULL; iter = iter->parent)
         len++;
@@ -302,6 +304,11 @@ cursor_foreach_cb (const SysprofCaptureFrame *frame,
           if (symbol != NULL)
             g_array_index (g->resolved, SysprofAddress, len++) = POINTER_TO_U64 (symbol);
         }
+
+      stack_stash_add_trace (g->stash,
+                             (gpointer)g->resolved->data,
+                             len,
+                             ev->alloc_size);
     }
 
   return TRUE;
@@ -340,6 +347,7 @@ sysprof_memprof_profile_generate_worker (GTask        *task,
   g_clear_pointer (&g->resolved, g_array_unref);
   g_clear_pointer (&g->resolvers, g_ptr_array_unref);
   g_clear_pointer (&g->reader, sysprof_capture_reader_unref);
+  g_clear_pointer (&g->building, stack_stash_unref);
   g_clear_object (&g->selection);
 
   g_task_return_boolean (task, TRUE);
@@ -375,6 +383,7 @@ sysprof_memprof_profile_generate (SysprofProfile      *profile,
   g->selection = sysprof_selection_copy (self->selection);
   g->rax = raxNew ();
   g->stash = stack_stash_new (NULL);
+  g->building = stack_stash_new (NULL);
   g->resolvers = g_ptr_array_new_with_free_func (g_object_unref);
   g->symbols = g_string_chunk_new (4096*4);
   g->tags = g_hash_table_new (g_str_hash, g_str_equal);

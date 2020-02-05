@@ -56,6 +56,8 @@ typedef struct
   GtkTreeView              *functions_view;
   GtkTreeView              *descendants_view;
   GtkTreeViewColumn        *descendants_name_column;
+  GtkTreeViewColumn        *function_size_column;
+  GtkCellRendererText      *function_size_cell;
   GtkStack                 *stack;
 
   GQueue                   *history;
@@ -82,7 +84,7 @@ enum {
   COLUMN_SELF,
   COLUMN_TOTAL,
   COLUMN_POINTER,
-  COLUMN_HITS,
+  COLUMN_SIZE,
 };
 
 static void sysprof_memprof_page_update_descendants (SysprofMemprofPage *self,
@@ -623,11 +625,27 @@ sysprof_memprof_page_caller_activated (SysprofMemprofPage *self,
 }
 
 static void
+sysprof_memprof_page_size_data_func (GtkTreeViewColumn *column,
+                                     GtkCellRenderer   *cell,
+                                     GtkTreeModel      *model,
+                                     GtkTreeIter       *iter,
+                                     gpointer           data)
+{
+  g_autofree gchar *size_str = NULL;
+  guint64 size;
+
+  gtk_tree_model_get (model, iter, COLUMN_SIZE, &size, -1);
+  if (size)
+    size_str = g_format_size_full (size, G_FORMAT_SIZE_IEC_UNITS);
+  g_object_set (cell, "text", size_str, NULL);
+}
+
+static void
 sysprof_memprof_page_tag_data_func (GtkTreeViewColumn *column,
-                                   GtkCellRenderer   *cell,
-                                   GtkTreeModel      *model,
-                                   GtkTreeIter       *iter,
-                                   gpointer           data)
+                                    GtkCellRenderer   *cell,
+                                    GtkTreeModel      *model,
+                                    GtkTreeIter       *iter,
+                                    gpointer           data)
 {
   SysprofMemprofPage *self = data;
   SysprofMemprofPagePrivate *priv = sysprof_memprof_page_get_instance_private (self);
@@ -923,6 +941,8 @@ sysprof_memprof_page_class_init (SysprofMemprofPageClass *klass)
                                                "/org/gnome/sysprof/ui/sysprof-memprof-page.ui");
 
   gtk_widget_class_bind_template_child_private (widget_class, SysprofMemprofPage, callers_view);
+  gtk_widget_class_bind_template_child_private (widget_class, SysprofMemprofPage, function_size_cell);
+  gtk_widget_class_bind_template_child_private (widget_class, SysprofMemprofPage, function_size_column);
   gtk_widget_class_bind_template_child_private (widget_class, SysprofMemprofPage, functions_view);
   gtk_widget_class_bind_template_child_private (widget_class, SysprofMemprofPage, descendants_view);
   gtk_widget_class_bind_template_child_private (widget_class, SysprofMemprofPage, descendants_name_column);
@@ -988,6 +1008,11 @@ sysprof_memprof_page_init (SysprofMemprofPage *self)
   gtk_tree_view_column_pack_start (priv->descendants_name_column, cell, FALSE);
   gtk_tree_view_column_set_cell_data_func (priv->descendants_name_column, cell,
                                            sysprof_memprof_page_tag_data_func,
+                                           self, NULL);
+
+  gtk_tree_view_column_set_cell_data_func (priv->function_size_column,
+                                           GTK_CELL_RENDERER (priv->function_size_cell),
+                                           sysprof_memprof_page_size_data_func,
                                            self, NULL);
 
   gtk_tree_selection_set_mode (gtk_tree_view_get_selection (priv->descendants_view),
@@ -1125,7 +1150,7 @@ append_to_tree_and_free (SysprofMemprofPage *self,
                       COLUMN_SELF, item->self * 100.0 / (gdouble)profile_size,
                       COLUMN_TOTAL, item->cumulative * 100.0 / (gdouble)profile_size,
                       COLUMN_POINTER, node,
-                      COLUMN_HITS, (guint)item->cumulative,
+                      COLUMN_SIZE, item->cumulative,
                       -1);
 
   if (item->siblings != NULL)
@@ -1154,7 +1179,7 @@ sysprof_memprof_page_update_descendants (SysprofMemprofPage *self,
                               G_TYPE_DOUBLE,
                               G_TYPE_DOUBLE,
                               G_TYPE_POINTER,
-                              G_TYPE_UINT);
+                              G_TYPE_UINT64);
 
   if (priv->profile != NULL)
   {
