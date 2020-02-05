@@ -227,12 +227,14 @@ cursor_foreach_cb (const SysprofCaptureFrame *frame,
   /* Handle removal frames */
   if (frame->type == SYSPROF_CAPTURE_FRAME_MEMORY_FREE)
     {
+#if 0
       const SysprofCaptureMemoryFree *ev = (const SysprofCaptureMemoryFree *)frame;
 
       raxRemove (g->rax,
                  (guint8 *)&ev->alloc_addr,
                  sizeof ev->alloc_addr,
                  NULL);
+#endif
 
       return TRUE;
     }
@@ -258,11 +260,13 @@ cursor_foreach_cb (const SysprofCaptureFrame *frame,
       StackNode *node;
       guint len = 5;
 
+#if 0
       raxInsert (g->rax,
                  (guint8 *)&ev->alloc_addr,
                  sizeof ev->alloc_addr,
                  (gpointer)ev->alloc_size,
                  NULL);
+#endif
 
       node = stack_stash_add_trace (g->building, ev->addrs, ev->n_addrs, ev->alloc_size);
 
