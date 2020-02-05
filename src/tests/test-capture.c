@@ -936,7 +936,7 @@ test_writer_memory_alloc_free (void)
 
   for (guint i = 0; i < 20; i++)
     {
-      const SysprofCaptureMemoryAlloc *ev;
+      const SysprofCaptureAllocation *ev;
 
       ev = sysprof_capture_reader_read_memory_alloc (reader);
       g_assert_nonnull (ev);

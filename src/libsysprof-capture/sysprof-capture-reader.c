@@ -1353,10 +1353,10 @@ sysprof_capture_reader_find_file (SysprofCaptureReader *self,
   return NULL;
 }
 
-const SysprofCaptureMemoryAlloc *
+const SysprofCaptureAllocation *
 sysprof_capture_reader_read_memory_alloc (SysprofCaptureReader *self)
 {
-  SysprofCaptureMemoryAlloc *ma;
+  SysprofCaptureAllocation *ma;
 
   g_assert (self != NULL);
   g_assert ((self->pos % SYSPROF_CAPTURE_ALIGN) == 0);
@@ -1365,7 +1365,7 @@ sysprof_capture_reader_read_memory_alloc (SysprofCaptureReader *self)
   if (!sysprof_capture_reader_ensure_space_for (self, sizeof *ma))
     return NULL;
 
-  ma = (SysprofCaptureMemoryAlloc *)(gpointer)&self->buf[self->pos];
+  ma = (SysprofCaptureAllocation *)(gpointer)&self->buf[self->pos];
 
   sysprof_capture_reader_bswap_frame (self, &ma->frame);
 
@@ -1389,7 +1389,7 @@ sysprof_capture_reader_read_memory_alloc (SysprofCaptureReader *self)
   if (!sysprof_capture_reader_ensure_space_for (self, ma->frame.len))
     return NULL;
 
-  ma = (SysprofCaptureMemoryAlloc *)(gpointer)&self->buf[self->pos];
+  ma = (SysprofCaptureAllocation *)(gpointer)&self->buf[self->pos];
 
   if (G_UNLIKELY (self->endian != G_BYTE_ORDER))
     {
@@ -1402,14 +1402,14 @@ sysprof_capture_reader_read_memory_alloc (SysprofCaptureReader *self)
   return ma;
 }
 
-const SysprofCaptureMemoryFree *
+const SysprofCaptureAllocation *
 sysprof_capture_reader_read_memory_free (SysprofCaptureReader *self)
 {
-  SysprofCaptureMemoryFree *mf;
+  SysprofCaptureAllocation *mf;
 
   g_assert (self != NULL);
 
-  mf = (SysprofCaptureMemoryFree *)
+  mf = (SysprofCaptureAllocation *)
     sysprof_capture_reader_read_basic (self,
                                        SYSPROF_CAPTURE_FRAME_MEMORY_FREE,
                                        sizeof *mf - sizeof (SysprofCaptureFrame));

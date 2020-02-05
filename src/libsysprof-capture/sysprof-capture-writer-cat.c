@@ -478,7 +478,7 @@ sysprof_capture_writer_cat (SysprofCaptureWriter  *self,
           break;
 
         case SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC: {
-          const SysprofCaptureMemoryAlloc *frame;
+          const SysprofCaptureAllocation *frame;
 
           if (!(frame = sysprof_capture_reader_read_memory_alloc (reader)))
             goto panic;
@@ -496,7 +496,7 @@ sysprof_capture_writer_cat (SysprofCaptureWriter  *self,
         }
 
         case SYSPROF_CAPTURE_FRAME_MEMORY_FREE: {
-          const SysprofCaptureMemoryFree *frame;
+          const SysprofCaptureAllocation *frame;
 
           if (!(frame = sysprof_capture_reader_read_memory_free (reader)))
             goto panic;
@@ -506,7 +506,9 @@ sysprof_capture_writer_cat (SysprofCaptureWriter  *self,
                                                   frame->frame.cpu,
                                                   frame->frame.pid,
                                                   frame->tid,
-                                                  frame->alloc_addr);
+                                                  frame->alloc_addr,
+                                                  frame->addrs,
+                                                  frame->n_addrs);
           break;
         }
 

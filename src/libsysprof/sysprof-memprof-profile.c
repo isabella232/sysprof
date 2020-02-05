@@ -228,7 +228,7 @@ cursor_foreach_cb (const SysprofCaptureFrame *frame,
   if (frame->type == SYSPROF_CAPTURE_FRAME_MEMORY_FREE)
     {
 #if 0
-      const SysprofCaptureMemoryFree *ev = (const SysprofCaptureMemoryFree *)frame;
+      const SysprofCaptureAllocation *ev = (const SysprofCaptureAllocation *)frame;
 
       raxRemove (g->rax,
                  (guint8 *)&ev->alloc_addr,
@@ -254,7 +254,7 @@ cursor_foreach_cb (const SysprofCaptureFrame *frame,
   /* Handle memory allocations */
   if (frame->type == SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC)
     {
-      const SysprofCaptureMemoryAlloc *ev = (const SysprofCaptureMemoryAlloc *)frame;
+      const SysprofCaptureAllocation *ev = (const SysprofCaptureAllocation *)frame;
       SysprofAddressContext last_context = SYSPROF_ADDRESS_CONTEXT_NONE;
       const gchar *cmdline;
       StackNode *node;

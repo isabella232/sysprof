@@ -64,7 +64,7 @@ allocs_by_size (SysprofCaptureReader *reader)
     {
       if (type == SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC)
         {
-          const SysprofCaptureMemoryAlloc *ev = sysprof_capture_reader_read_memory_alloc (reader);
+          const SysprofCaptureAllocation *ev = sysprof_capture_reader_read_memory_alloc (reader);
 
           if (ev == NULL)
             break;

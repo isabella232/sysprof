@@ -319,20 +319,11 @@ typedef struct
   SysprofCaptureFrame   frame;
   SysprofCaptureAddress alloc_addr;
   gint64                alloc_size;
+  gint32                tid;
   guint32               n_addrs : 16;
   guint32               padding1 : 16;
-  gint32                tid;
   SysprofCaptureAddress addrs[0];
-} SysprofCaptureMemoryAlloc
-SYSPROF_ALIGNED_END(1);
-
-SYSPROF_ALIGNED_BEGIN(1)
-typedef struct
-{
-  SysprofCaptureFrame   frame;
-  SysprofCaptureAddress alloc_addr;
-  gint32                tid;
-} SysprofCaptureMemoryFree
+} SysprofCaptureAllocation
 SYSPROF_ALIGNED_END(1);
 
 G_STATIC_ASSERT (sizeof (SysprofCaptureFileHeader) == 256);
@@ -352,8 +343,8 @@ G_STATIC_ASSERT (sizeof (SysprofCaptureMark) == 96);
 G_STATIC_ASSERT (sizeof (SysprofCaptureMetadata) == 64);
 G_STATIC_ASSERT (sizeof (SysprofCaptureLog) == 64);
 G_STATIC_ASSERT (sizeof (SysprofCaptureFileChunk) == 284);
-G_STATIC_ASSERT (sizeof (SysprofCaptureMemoryAlloc) == 48);
-G_STATIC_ASSERT ((G_STRUCT_OFFSET (SysprofCaptureMemoryAlloc, addrs) % 8) == 0);
+G_STATIC_ASSERT (sizeof (SysprofCaptureAllocation) == 48);
+G_STATIC_ASSERT ((G_STRUCT_OFFSET (SysprofCaptureAllocation, addrs) % 8) == 0);
 
 static inline gint
 sysprof_capture_address_compare (SysprofCaptureAddress a,

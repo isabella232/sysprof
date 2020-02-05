@@ -168,7 +168,9 @@ track_free (void *ptr)
                                           sched_getcpu (),
                                           pid,
                                           gettid(),
-                                          GPOINTER_TO_SIZE (ptr));
+                                          GPOINTER_TO_SIZE (ptr),
+                                          NULL, /* TODO: Too slow for now */
+                                          0);
   G_UNLOCK (writer);
 }
 

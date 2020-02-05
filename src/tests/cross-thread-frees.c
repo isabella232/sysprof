@@ -70,7 +70,7 @@ cross_thread_frees (SysprofCaptureReader *reader)
     {
       if (type == SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC)
         {
-          const SysprofCaptureMemoryAlloc *ev = sysprof_capture_reader_read_memory_alloc (reader);
+          const SysprofCaptureAllocation *ev = sysprof_capture_reader_read_memory_alloc (reader);
 
           if (ev == NULL)
             break;
@@ -82,7 +82,7 @@ cross_thread_frees (SysprofCaptureReader *reader)
         }
       else if (type == SYSPROF_CAPTURE_FRAME_MEMORY_FREE)
         {
-          const SysprofCaptureMemoryFree *ev = sysprof_capture_reader_read_memory_free (reader);
+          const SysprofCaptureAllocation *ev = sysprof_capture_reader_read_memory_free (reader);
           gpointer key = GINT_TO_POINTER (ev->alloc_addr);
           Stack *stack;
 

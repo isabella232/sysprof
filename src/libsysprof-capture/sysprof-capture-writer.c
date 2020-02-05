@@ -1529,14 +1529,14 @@ sysprof_capture_writer_add_memory_alloc (SysprofCaptureWriter        *self,
                                          const SysprofCaptureAddress *addrs,
                                          guint                        n_addrs)
 {
-  SysprofCaptureMemoryAlloc *ev;
+  SysprofCaptureAllocation *ev;
   gsize len;
 
   g_assert (self != NULL);
 
   len = sizeof *ev + (n_addrs * sizeof (SysprofCaptureAddress));
 
-  ev = (SysprofCaptureMemoryAlloc *)sysprof_capture_writer_allocate (self, &len);
+  ev = (SysprofCaptureAllocation *)sysprof_capture_writer_allocate (self, &len);
   if (!ev)
     return FALSE;
 
@@ -1550,8 +1550,10 @@ sysprof_capture_writer_add_memory_alloc (SysprofCaptureWriter        *self,
   ev->alloc_addr = alloc_addr;
   ev->n_addrs = n_addrs;
   ev->tid = tid;
+  ev->padding1 = 0;
 
-  memcpy (ev->addrs, addrs, (n_addrs * sizeof (SysprofCaptureAddress)));
+  if (n_addrs > 0)
+    memcpy (ev->addrs, addrs, (n_addrs * sizeof (SysprofCaptureAddress)));
 
   self->stat.frame_count[SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC]++;
 
@@ -1567,13 +1569,13 @@ sysprof_capture_writer_add_memory_alloc_with_backtrace (SysprofCaptureWriter  *s
                                                         SysprofCaptureAddress  alloc_addr,
                                                         gsize                  alloc_size)
 {
-  SysprofCaptureMemoryAlloc *ev;
+  SysprofCaptureAllocation *ev;
   gsize len;
 
   g_assert (self != NULL);
 
   len = sizeof *ev + (MAX_UNWIND_DEPTH * sizeof (SysprofCaptureAddress));
-  ev = (SysprofCaptureMemoryAlloc *)sysprof_capture_writer_allocate (self, &len);
+  ev = (SysprofCaptureAllocation *)sysprof_capture_writer_allocate (self, &len);
   if (!ev)
     return FALSE;
 
@@ -1638,14 +1640,18 @@ sysprof_capture_writer_add_memory_free (SysprofCaptureWriter        *self,
                                         gint                         cpu,
                                         gint32                       pid,
                                         gint32                       tid,
-                                        SysprofCaptureAddress        alloc_addr)
+                                        SysprofCaptureAddress        alloc_addr,
+                                        const SysprofCaptureAddress *addrs,
+                                        guint                        n_addrs)
 {
-  SysprofCaptureMemoryFree *ev;
-  gsize len = sizeof *ev;
+  SysprofCaptureAllocation *ev;
+  gsize len;
 
   g_assert (self != NULL);
 
-  ev = (SysprofCaptureMemoryFree *)sysprof_capture_writer_allocate (self, &len);
+  len = sizeof *ev + (n_addrs * sizeof (SysprofCaptureAddress));
+
+  ev = (SysprofCaptureAllocation *)sysprof_capture_writer_allocate (self, &len);
   if (!ev)
     return FALSE;
 
@@ -1655,9 +1661,14 @@ sysprof_capture_writer_add_memory_free (SysprofCaptureWriter        *self,
                                      pid,
                                      time,
                                      SYSPROF_CAPTURE_FRAME_MEMORY_FREE);
-
-  ev->tid = tid;
+  ev->alloc_size = 0;
   ev->alloc_addr = alloc_addr;
+  ev->n_addrs = n_addrs;
+  ev->tid = tid;
+  ev->padding1 = 0;
+
+  if (n_addrs > 0)
+    memcpy (ev->addrs, addrs, (n_addrs * sizeof (SysprofCaptureAddress)));
 
   self->stat.frame_count[SYSPROF_CAPTURE_FRAME_MEMORY_FREE]++;
 
