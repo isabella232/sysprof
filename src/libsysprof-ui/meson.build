@@ -47,6 +47,7 @@ libsysprof_ui_private_sources = [
   'sysprof-memory-aid.c',
   'sysprof-memprof-aid.c',
   'sysprof-memprof-page.c',
+  'sysprof-memprof-visualizer.c',
   'sysprof-netdev-aid.c',
   'sysprof-procs-visualizer.c',
   'sysprof-profiler-assistant.c',
