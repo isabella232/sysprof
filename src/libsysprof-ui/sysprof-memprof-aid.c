@@ -27,6 +27,7 @@
 #include "sysprof-memprof-aid.h"
 #include "sysprof-memprof-page.h"
 #include "sysprof-memprof-source.h"
+#include "sysprof-memprof-visualizer.h"
 
 struct _SysprofMemprofAid
 {
@@ -171,6 +172,7 @@ sysprof_memprof_aid_present_finish (SysprofAid    *aid,
   if (p->has_allocs)
     {
       SysprofVisualizerGroup *group;
+      SysprofVisualizer *row;
       SysprofPage *page;
 
       group = g_object_new (SYSPROF_TYPE_VISUALIZER_GROUP,
@@ -180,7 +182,13 @@ sysprof_memprof_aid_present_finish (SysprofAid    *aid,
                             "title", _("Memory"),
                             "visible", TRUE,
                             NULL);
-      sysprof_display_add_group (p->display, group);
+
+      row = g_object_new (SYSPROF_TYPE_MEMPROF_VISUALIZER,
+                          "title", _("Memory Allocations"),
+                          "height-request", 35,
+                          "visible", TRUE,
+                          NULL);
+      sysprof_visualizer_group_insert (group, row, 0, FALSE);
 
       page = g_object_new (SYSPROF_TYPE_MEMPROF_PAGE,
                            "title", _("Memory Allocations"),
@@ -195,6 +203,8 @@ sysprof_memprof_aid_present_finish (SysprofAid    *aid,
                                G_CALLBACK (on_group_activated_cb),
                                page,
                                0);
+
+      sysprof_display_add_group (p->display, group);
     }
 
   return g_task_propagate_boolean (G_TASK (result), error);
