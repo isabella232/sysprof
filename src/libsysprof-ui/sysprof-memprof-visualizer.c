@@ -22,6 +22,9 @@
 
 #define G_LOG_DOMAIN "sysprof-memprof-visualizer"
 
+#include <math.h>
+
+#include "sysprof-color-cycle.h"
 #include "sysprof-memprof-visualizer.h"
 
 typedef struct
@@ -33,6 +36,7 @@ typedef struct
   gint64                duration;
   GdkRGBA               fg;
   GdkRGBA               bg;
+  guint                 scale;
 } DrawContext;
 
 struct _SysprofMemprofVisualizer
@@ -99,19 +103,56 @@ sysprof_memprof_visualizer_new (void)
   return g_object_new (SYSPROF_TYPE_MEMPROF_VISUALIZER, NULL);
 }
 
+static guint64
+get_max_alloc (SysprofCaptureReader *reader)
+{
+  SysprofCaptureFrameType type;
+  guint64 ret = 0;
+
+  while (sysprof_capture_reader_peek_type (reader, &type))
+    {
+      const SysprofCaptureAllocation *ev;
+
+      if (type == SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC)
+        {
+          if (!(ev = sysprof_capture_reader_read_memory_alloc (reader)))
+            break;
+        }
+      else if (type == SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC)
+        {
+          if (!(ev = sysprof_capture_reader_read_memory_free (reader)))
+            break;
+        }
+      else
+        {
+          if (!sysprof_capture_reader_skip (reader))
+            break;
+          continue;
+        }
+
+      ret = MAX (ret, ev->alloc_size);
+    }
+
+  sysprof_capture_reader_reset (reader);
+
+  return ret;
+}
+
 static void
 sysprof_memprof_visualizer_draw_worker (GTask        *task,
                                         gpointer      source_object,
                                         gpointer      task_data,
                                         GCancellable *cancellable)
 {
+  static const gdouble dashes[] = { 1.0, 2.0 };
   DrawContext *draw = task_data;
   SysprofCaptureFrameType type;
+  GdkRGBA mid;
   cairo_t *cr;
-  guint8 *data;
   guint counter = 0;
-  gint stride;
-  gint r, g, b;
+  guint64 max_alloc;
+  gint midpt;
+  gdouble log_max;
 
   g_assert (G_IS_TASK (task));
   g_assert (draw != NULL);
@@ -119,34 +160,34 @@ sysprof_memprof_visualizer_draw_worker (GTask        *task,
   g_assert (draw->reader != NULL);
   g_assert (!cancellable || G_IS_CANCELLABLE (cancellable));
 
+  max_alloc = get_max_alloc (draw->reader);
+  log_max = log10 (max_alloc);
+  midpt = draw->alloc.height / 2;
+
   /* Fill background first */
   cr = cairo_create (draw->surface);
   gdk_cairo_rectangle (cr, &draw->alloc);
   gdk_cairo_set_source_rgba (cr, &draw->bg);
   cairo_fill (cr);
-  cairo_destroy (cr);
 
-  stride = cairo_image_surface_get_stride (draw->surface);
-  data = cairo_image_surface_get_data (draw->surface);
+  /* Draw mid-point line */
+  mid = draw->fg;
+  mid.alpha *= 0.4;
+  cairo_set_line_width (cr, 1.0);
+  gdk_cairo_set_source_rgba (cr, &mid);
+  cairo_move_to (cr, 0, midpt);
+  cairo_line_to (cr, draw->alloc.width, midpt);
+  cairo_set_dash (cr, dashes, G_N_ELEMENTS (dashes), 0);
+  cairo_stroke (cr);
 
-  if (data == NULL)
-    {
-      g_task_return_new_error (task,
-                               G_IO_ERROR,
-                               G_IO_ERROR_INVALID_DATA,
-                               "No data from image surface to access");
-      return;
-    }
-
-  r = draw->fg.red * 255;
-  g = draw->fg.green * 255;
-  b = draw->fg.blue * 255;
+  /* Setup to draw our pixels */
+  gdk_cairo_set_source_rgba (cr, &draw->fg);
 
   /* Now draw data points */
   while (sysprof_capture_reader_peek_type (draw->reader, &type))
     {
       const SysprofCaptureAllocation *ev;
-      guint8 *pptr;
+      gdouble l;
       gint x;
       gint y;
 
@@ -154,7 +195,10 @@ sysprof_memprof_visualizer_draw_worker (GTask        *task,
       if G_UNLIKELY (++counter == 1000)
         {
           if (g_task_return_error_if_cancelled (task))
-            return;
+            {
+              cairo_destroy (cr);
+              return;
+            }
 
           counter = 0;
         }
@@ -176,14 +220,20 @@ sysprof_memprof_visualizer_draw_worker (GTask        *task,
       if (ev == NULL)
         break;
 
-      x = (ev->frame.time - draw->begin_time) / (gdouble)draw->duration * draw->alloc.width;
-      y = 0;
+      l = log10 (ev->alloc_size);
 
-      pptr = data + ((stride * y) + (x * 3));
-      pptr[0] = r;
-      pptr[1] = g;
-      pptr[2] = b;
+      x = (ev->frame.time - draw->begin_time) / (gdouble)draw->duration * draw->alloc.width;
+      y = midpt - ((l / log_max) * midpt);
+
+      /* Fill immediately instead of batching draws so that
+       * we don't take a lot of memory to hold on to the
+       * path while drawing.
+       */
+      cairo_rectangle (cr, x, y, 1, 1);
+      cairo_fill (cr);
     }
+
+  cairo_destroy (cr);
 
   g_task_return_boolean (task, TRUE);
 }
@@ -217,13 +267,12 @@ draw_finished (GObject      *object,
 static gboolean
 sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
 {
+  g_autoptr(SysprofColorCycle) cycle = NULL;
   g_autoptr(GTask) task = NULL;
   GtkStyleContext *style_context;
   GtkAllocation alloc;
   GtkStateFlags state;
   DrawContext *draw;
-  GdkWindow *window;
-  gint scale;
 
   g_assert (SYSPROF_IS_MEMPROF_VISUALIZER (self));
 
@@ -237,22 +286,34 @@ sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
       alloc.width == 0 || alloc.height == 0)
     return G_SOURCE_REMOVE;
 
+  cycle = sysprof_color_cycle_new ();
+
+  /* Some GPUs (Intel) cannot deal with graphics textures larger than
+   * 8000x8000. So here we are going to cheat a bit and just use that as our
+   * max, and scale when drawing. The biggest issue here is that long term we
+   * need a tiling solution that lets us render lots of tiles and then draw
+   * them as necessary.
+   */
+  if (alloc.width > 8000)
+    alloc.width = 8000;
+
   draw = g_atomic_rc_box_new0 (DrawContext);
   draw->alloc.width = alloc.width;
   draw->alloc.height = alloc.height;
   draw->reader = sysprof_capture_reader_copy (self->reader);
   draw->begin_time = self->begin_time;
   draw->duration = self->duration;
+  draw->scale = gtk_widget_get_scale_factor (GTK_WIDGET (self));
+  sysprof_color_cycle_next (cycle, &draw->fg);
 
-  /* Create a surface to draw to */
-  window = gtk_widget_get_window (GTK_WIDGET (self));
-  scale = gtk_widget_get_scale_factor (GTK_WIDGET (self));
-  draw->surface = gdk_window_create_similar_image_surface (window, CAIRO_FORMAT_RGB24, alloc.width, alloc.height, scale);
+  draw->surface = cairo_image_surface_create (CAIRO_FORMAT_RGB24,
+                                              alloc.width * draw->scale,
+                                              alloc.height * draw->scale);
+  cairo_surface_set_device_scale (draw->surface, draw->scale, draw->scale);
 
   /* Get our styles to render with so we can do off-main-thread */
   state = gtk_widget_get_state_flags (GTK_WIDGET (self));
   style_context = gtk_widget_get_style_context (GTK_WIDGET (self));
-  gtk_style_context_get_color (style_context, state, &draw->fg);
   /* Takin the render cost for render_background() isn't worth it on the
    * main thread. The main thing we want here is an opaque surface that we
    * can quickly draw as a texture when rendering.
@@ -327,7 +388,6 @@ sysprof_memprof_visualizer_draw (GtkWidget *widget,
       gtk_widget_get_allocation (widget, &alloc);
 
       cairo_save (cr);
-      cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
       cairo_rectangle (cr, 0, 0, alloc.width, alloc.height);
 
       /* We might be drawing an updated image in the background, and this
@@ -344,7 +404,7 @@ sysprof_memprof_visualizer_draw (GtkWidget *widget,
         }
 
       cairo_set_source_surface (cr, self->surface, 0, 0);
-      cairo_fill (cr);
+      cairo_paint (cr);
       cairo_restore (cr);
 
       return GDK_EVENT_PROPAGATE;
