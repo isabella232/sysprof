@@ -100,23 +100,6 @@ sysprof_memprof_visualizer_new (void)
 }
 
 static void
-draw_context_add (cairo_t                        *cr,
-                  DrawContext                    *draw,
-                  const SysprofCaptureAllocation *ev)
-{
-  gint x;
-  gint y;
-
-  g_assert (draw != NULL);
-  g_assert (ev != NULL);
-
-  x = (ev->frame.time - draw->begin_time) / (gdouble)draw->duration * draw->alloc.width;
-  y = 0;
-
-  cairo_rectangle (cr, x, y, 1, 1);
-}
-
-static void
 sysprof_memprof_visualizer_draw_worker (GTask        *task,
                                         gpointer      source_object,
                                         gpointer      task_data,
@@ -125,7 +108,10 @@ sysprof_memprof_visualizer_draw_worker (GTask        *task,
   DrawContext *draw = task_data;
   SysprofCaptureFrameType type;
   cairo_t *cr;
+  guint8 *data;
   guint counter = 0;
+  gint stride;
+  gint r, g, b;
 
   g_assert (G_IS_TASK (task));
   g_assert (draw != NULL);
@@ -133,26 +119,42 @@ sysprof_memprof_visualizer_draw_worker (GTask        *task,
   g_assert (draw->reader != NULL);
   g_assert (!cancellable || G_IS_CANCELLABLE (cancellable));
 
-  cr = cairo_create (draw->surface);
-
   /* Fill background first */
+  cr = cairo_create (draw->surface);
   gdk_cairo_rectangle (cr, &draw->alloc);
   gdk_cairo_set_source_rgba (cr, &draw->bg);
   cairo_fill (cr);
+  cairo_destroy (cr);
+
+  stride = cairo_image_surface_get_stride (draw->surface);
+  data = cairo_image_surface_get_data (draw->surface);
+
+  if (data == NULL)
+    {
+      g_task_return_new_error (task,
+                               G_IO_ERROR,
+                               G_IO_ERROR_INVALID_DATA,
+                               "No data from image surface to access");
+      return;
+    }
+
+  r = draw->fg.red * 255;
+  g = draw->fg.green * 255;
+  b = draw->fg.blue * 255;
 
   /* Now draw data points */
   while (sysprof_capture_reader_peek_type (draw->reader, &type))
     {
       const SysprofCaptureAllocation *ev;
+      guint8 *pptr;
+      gint x;
+      gint y;
 
       /* Cancellation check every 1000 frames */
       if G_UNLIKELY (++counter == 1000)
         {
           if (g_task_return_error_if_cancelled (task))
-            {
-              cairo_destroy (cr);
-              return;
-            }
+            return;
 
           counter = 0;
         }
@@ -174,13 +176,14 @@ sysprof_memprof_visualizer_draw_worker (GTask        *task,
       if (ev == NULL)
         break;
 
-      draw_context_add (cr, draw, ev);
-    }
+      x = (ev->frame.time - draw->begin_time) / (gdouble)draw->duration * draw->alloc.width;
+      y = 0;
 
-  /* Now fill our draw paths */
-  gdk_cairo_set_source_rgba (cr, &draw->fg);
-  cairo_fill (cr);
-  cairo_destroy (cr);
+      pptr = data + ((stride * y) + (x * 3));
+      pptr[0] = r;
+      pptr[1] = g;
+      pptr[2] = b;
+    }
 
   g_task_return_boolean (task, TRUE);
 }
@@ -364,6 +367,26 @@ sysprof_memprof_visualizer_class_init (SysprofMemprofVisualizerClass *klass)
 }
 
 static void
+on_style_changed_cb (SysprofMemprofVisualizer *self,
+                     GtkStyleContext          *style_context)
+{
+  g_assert (SYSPROF_IS_MEMPROF_VISUALIZER (self));
+  g_assert (GTK_IS_STYLE_CONTEXT (style_context));
+
+  /* Style changing means we might look odd (dark on light, etc) so
+   * we just invalidate immediately instead of skewing the result
+   * until it has drawn.
+   */
+  g_clear_pointer (&self->surface, cairo_surface_destroy);
+  sysprof_memprof_visualizer_queue_redraw (self);
+}
+
+static void
 sysprof_memprof_visualizer_init (SysprofMemprofVisualizer *self)
 {
+  g_signal_connect_object (gtk_widget_get_style_context (GTK_WIDGET (self)),
+                           "changed",
+                           G_CALLBACK (on_style_changed_cb),
+                           self,
+                           G_CONNECT_SWAPPED);
 }
