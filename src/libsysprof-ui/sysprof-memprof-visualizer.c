@@ -23,6 +23,9 @@
 #define G_LOG_DOMAIN "sysprof-memprof-visualizer"
 
 #include <math.h>
+#include <stddef.h>
+
+#include "rax.h"
 
 #include "sysprof-color-cycle.h"
 #include "sysprof-memprof-visualizer.h"
@@ -31,10 +34,12 @@ typedef struct
 {
   cairo_surface_t      *surface;
   SysprofCaptureReader *reader;
+  rax                  *rax;
   GtkAllocation         alloc;
   gint64                begin_time;
   gint64                duration;
   GdkRGBA               fg;
+  GdkRGBA               fg2;
   GdkRGBA               bg;
   guint                 scale;
 } DrawContext;
@@ -61,7 +66,9 @@ G_DEFINE_TYPE (SysprofMemprofVisualizer, sysprof_memprof_visualizer, SYSPROF_TYP
 static void
 draw_context_finalize (DrawContext *draw)
 {
+  g_clear_pointer (&draw->reader, sysprof_capture_reader_unref);
   g_clear_pointer (&draw->surface, cairo_surface_destroy);
+  g_clear_pointer (&draw->rax, raxFree);
 }
 
 static void
@@ -147,6 +154,7 @@ sysprof_memprof_visualizer_draw_worker (GTask        *task,
   static const gdouble dashes[] = { 1.0, 2.0 };
   DrawContext *draw = task_data;
   SysprofCaptureFrameType type;
+  GdkRGBA *last;
   GdkRGBA mid;
   cairo_t *cr;
   guint counter = 0;
@@ -180,13 +188,14 @@ sysprof_memprof_visualizer_draw_worker (GTask        *task,
   cairo_set_dash (cr, dashes, G_N_ELEMENTS (dashes), 0);
   cairo_stroke (cr);
 
-  /* Setup to draw our pixels */
   gdk_cairo_set_source_rgba (cr, &draw->fg);
+  last = &draw->fg;
 
   /* Now draw data points */
   while (sysprof_capture_reader_peek_type (draw->reader, &type))
     {
       const SysprofCaptureAllocation *ev;
+      gint64 size;
       gdouble l;
       gint x;
       gint y;
@@ -207,23 +216,49 @@ sysprof_memprof_visualizer_draw_worker (GTask        *task,
       if (type != SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC &&
           type != SYSPROF_CAPTURE_FRAME_MEMORY_FREE)
         {
-          if (sysprof_capture_reader_skip (draw->reader))
-            continue;
-          break;
+          if (!sysprof_capture_reader_skip (draw->reader))
+            break;
+          continue;
         }
 
       if (type == SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC)
-        ev = sysprof_capture_reader_read_memory_alloc (draw->reader);
+        {
+          if (!(ev = sysprof_capture_reader_read_memory_alloc (draw->reader)))
+            break;
+
+          size = ev->alloc_size;
+          raxInsert (draw->rax, (guint8 *)&ev->alloc_addr, sizeof ev->alloc_addr, GSIZE_TO_POINTER (size), NULL);
+
+          if (last != &draw->fg)
+            {
+              gdk_cairo_set_source_rgba (cr, &draw->fg);
+              last = &draw->fg;
+            }
+        }
       else
-        ev = sysprof_capture_reader_read_memory_free (draw->reader);
+        {
+          if (!(ev = sysprof_capture_reader_read_memory_free (draw->reader)))
+            break;
 
-      if (ev == NULL)
-        break;
+          size = GPOINTER_TO_SIZE (raxFind (draw->rax, (guint8 *)&ev->alloc_addr, sizeof ev->alloc_addr));
+          if (size)
+            raxRemove (draw->rax, (guint8 *)&ev->alloc_addr, sizeof ev->alloc_addr, NULL);
 
-      l = log10 (ev->alloc_size);
+          if (last != &draw->fg2)
+            {
+              gdk_cairo_set_source_rgba (cr, &draw->fg2);
+              last = &draw->fg2;
+            }
+        }
+
+      l = log10 (size);
 
       x = (ev->frame.time - draw->begin_time) / (gdouble)draw->duration * draw->alloc.width;
-      y = midpt - ((l / log_max) * midpt);
+
+      if (type == SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC)
+        y = midpt - ((l / log_max) * midpt);
+      else
+        y = midpt + ((l / log_max) * midpt);
 
       /* Fill immediately instead of batching draws so that
        * we don't take a lot of memory to hold on to the
@@ -298,6 +333,7 @@ sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
     alloc.width = 8000;
 
   draw = g_atomic_rc_box_new0 (DrawContext);
+  draw->rax = raxNew ();
   draw->alloc.width = alloc.width;
   draw->alloc.height = alloc.height;
   draw->reader = sysprof_capture_reader_copy (self->reader);
@@ -305,6 +341,7 @@ sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
   draw->duration = self->duration;
   draw->scale = gtk_widget_get_scale_factor (GTK_WIDGET (self));
   sysprof_color_cycle_next (cycle, &draw->fg);
+  sysprof_color_cycle_next (cycle, &draw->fg2);
 
   draw->surface = cairo_image_surface_create (CAIRO_FORMAT_RGB24,
                                               alloc.width * draw->scale,
