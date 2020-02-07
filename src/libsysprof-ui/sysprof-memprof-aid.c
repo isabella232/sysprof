@@ -186,6 +186,9 @@ sysprof_memprof_aid_present_finish (SysprofAid    *aid,
       row = sysprof_memprof_visualizer_new (FALSE);
       sysprof_visualizer_group_insert (group, row, 0, FALSE);
 
+      row = sysprof_memprof_visualizer_new (TRUE);
+      sysprof_visualizer_group_insert (group, row, 1, FALSE);
+
       page = g_object_new (SYSPROF_TYPE_MEMPROF_PAGE,
                            "title", _("Memory Allocations"),
                            "vexpand", TRUE,

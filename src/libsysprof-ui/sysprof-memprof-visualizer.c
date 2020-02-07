@@ -38,6 +38,8 @@ typedef struct
   GtkAllocation         alloc;
   gint64                begin_time;
   gint64                duration;
+  gint64                total_alloc;
+  gint64                max_alloc;
   GdkRGBA               fg;
   GdkRGBA               fg2;
   guint                 scale;
@@ -59,7 +61,15 @@ struct _SysprofMemprofVisualizer
   gint64                begin_time;
   gint64                duration;
 
+  gint64                cached_total_alloc;
+  gint64                cached_max_alloc;
+
   guint                 mode : 1;
+};
+
+enum {
+  MODE_ALLOCS,
+  MODE_TOTAL,
 };
 
 G_DEFINE_TYPE (SysprofMemprofVisualizer, sysprof_memprof_visualizer, SYSPROF_TYPE_VISUALIZER)
@@ -100,11 +110,15 @@ sysprof_memprof_visualizer_new (gboolean total_allocs)
   SysprofMemprofVisualizer *self;
 
   self = g_object_new (SYSPROF_TYPE_MEMPROF_VISUALIZER,
-                       "title", _("Memory Allocations"),
+                       "title", total_allocs ? _("Memory Used") : _("Memory Allocations"),
                        "height-request", 35,
                        "visible", TRUE,
                        NULL);
-  self->mode = !!total_allocs;
+
+  if (total_allocs)
+    self->mode = MODE_TOTAL;
+  else
+    self->mode = MODE_ALLOCS;
 
   return SYSPROF_VISUALIZER (self);
 }
@@ -144,6 +158,158 @@ get_max_alloc (SysprofCaptureReader *reader)
   return ret;
 }
 
+static guint64
+get_total_alloc (SysprofCaptureReader *reader)
+{
+  SysprofCaptureFrameType type;
+  guint64 total = 0;
+  guint64 max = 0;
+  rax *r;
+
+  r = raxNew ();
+
+  while (sysprof_capture_reader_peek_type (reader, &type))
+    {
+      const SysprofCaptureAllocation *ev;
+
+      if (type == SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC)
+        {
+          if (!(ev = sysprof_capture_reader_read_memory_alloc (reader)))
+            break;
+
+          raxInsert (r,
+                     (guint8 *)&ev->alloc_addr,
+                     sizeof ev->alloc_addr,
+                     GSIZE_TO_POINTER (ev->alloc_size),
+                     NULL);
+
+          total += ev->alloc_size;
+
+          if (total > max)
+            max = total;
+        }
+      else if (type == SYSPROF_CAPTURE_FRAME_MEMORY_FREE)
+        {
+          gpointer res;
+
+          if (!(ev = sysprof_capture_reader_read_memory_free (reader)))
+            break;
+
+          res = raxFind (r, (guint8 *)&ev->alloc_addr, sizeof ev->alloc_addr);
+
+          if (res != raxNotFound)
+            {
+              total -= GPOINTER_TO_SIZE (res);
+              raxRemove (r,
+                         (guint8 *)&ev->alloc_addr,
+                         sizeof ev->alloc_addr,
+                         NULL);
+            }
+        }
+      else
+        {
+          if (!sysprof_capture_reader_skip (reader))
+            break;
+          continue;
+        }
+    }
+
+  sysprof_capture_reader_reset (reader);
+  raxFree (r);
+
+  return max;
+}
+
+static void
+draw_total_worker (GTask        *task,
+                   gpointer      source_object,
+                   gpointer      task_data,
+                   GCancellable *cancellable)
+{
+  SysprofCaptureFrameType type;
+  DrawContext *draw = task_data;
+  gint64 total = 0;
+  cairo_t *cr;
+  rax *r;
+  gint x = 0;
+
+  g_assert (G_IS_TASK (task));
+  g_assert (draw != NULL);
+  g_assert (draw->surface != NULL);
+  g_assert (draw->reader != NULL);
+  g_assert (!cancellable || G_IS_CANCELLABLE (cancellable));
+
+  if (draw->total_alloc == 0)
+    draw->total_alloc = get_total_alloc (draw->reader);
+
+  r = raxNew ();
+
+  /* To avoid sorting, this code assums that all allocation information
+   * is sorted and in order. Generally this is the case, but a crafted
+   * syscap file could break it on purpose if they tried.
+   */
+
+  cr = cairo_create (draw->surface);
+  cairo_set_antialias (cr, CAIRO_ANTIALIAS_NONE);
+  cairo_set_source_rgb (cr, 0, 0, 0);
+
+  while (sysprof_capture_reader_peek_type (draw->reader, &type))
+    {
+      const SysprofCaptureAllocation *ev;
+      gint y;
+
+      if (type == SYSPROF_CAPTURE_FRAME_MEMORY_ALLOC)
+        {
+          if (!(ev = sysprof_capture_reader_read_memory_alloc (draw->reader)))
+            break;
+
+          raxInsert (r,
+                     (guint8 *)&ev->alloc_addr,
+                     sizeof ev->alloc_addr,
+                     GSIZE_TO_POINTER (ev->alloc_size),
+                     NULL);
+
+          total += ev->alloc_size;
+        }
+      else if (type == SYSPROF_CAPTURE_FRAME_MEMORY_FREE)
+        {
+          gpointer res;
+
+          if (!(ev = sysprof_capture_reader_read_memory_free (draw->reader)))
+            break;
+
+          res = raxFind (r, (guint8 *)&ev->alloc_addr, sizeof ev->alloc_addr);
+
+          if (res != raxNotFound)
+            {
+              total -= GPOINTER_TO_SIZE (res);
+              raxRemove (r,
+                         (guint8 *)&ev->alloc_addr,
+                         sizeof ev->alloc_addr,
+                         NULL);
+            }
+        }
+      else
+        {
+          if (!sysprof_capture_reader_skip (draw->reader))
+            break;
+          continue;
+        }
+
+      x = (ev->frame.time - draw->begin_time) / (gdouble)draw->duration * draw->alloc.width;
+      y = draw->alloc.height - ((gdouble)total / (gdouble)draw->total_alloc * (gdouble)draw->alloc.height);
+
+      cairo_rectangle (cr, x, y, 1, 1);
+      cairo_fill (cr);
+    }
+
+  cairo_destroy (cr);
+
+  g_task_return_boolean (task, TRUE);
+
+  raxFree (r);
+}
+
 static void
 draw_alloc_worker (GTask        *task,
                    gpointer      source_object,
@@ -157,7 +323,6 @@ draw_alloc_worker (GTask        *task,
   GdkRGBA mid;
   cairo_t *cr;
   guint counter = 0;
-  guint64 max_alloc;
   gint midpt;
   gdouble log_max;
 
@@ -167,8 +332,10 @@ draw_alloc_worker (GTask        *task,
   g_assert (draw->reader != NULL);
   g_assert (!cancellable || G_IS_CANCELLABLE (cancellable));
 
-  max_alloc = get_max_alloc (draw->reader);
-  log_max = log10 (max_alloc);
+  if (draw->max_alloc == 0)
+    draw->max_alloc = get_max_alloc (draw->reader);
+
+  log_max = log10 (draw->max_alloc);
   midpt = draw->alloc.height / 2;
 
   cr = cairo_create (draw->surface);
@@ -290,6 +457,8 @@ draw_finished (GObject      *object,
       self->surface = g_steal_pointer (&draw->surface);
       self->surface_w = draw->alloc.width;
       self->surface_h = draw->alloc.height;
+      self->cached_max_alloc = draw->max_alloc;
+      self->cached_total_alloc = draw->total_alloc;
 
       gtk_widget_queue_draw (GTK_WIDGET (self));
     }
@@ -331,6 +500,8 @@ sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
   draw->begin_time = self->begin_time;
   draw->duration = self->duration;
   draw->scale = gtk_widget_get_scale_factor (GTK_WIDGET (self));
+  draw->max_alloc = self->cached_max_alloc;
+  draw->total_alloc = self->cached_total_alloc;
 
   gdk_rgba_parse (&draw->fg, "rgba(246,97,81,1)");
   gdk_rgba_parse (&draw->fg2, "rgba(245,194,17,1)");
@@ -347,7 +518,11 @@ sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
   task = g_task_new (NULL, self->cancellable, draw_finished, g_object_ref (self));
   g_task_set_source_tag (task, sysprof_memprof_visualizer_begin_draw);
   g_task_set_task_data (task, g_steal_pointer (&draw), (GDestroyNotify)draw_context_free);
-  g_task_run_in_thread (task, draw_alloc_worker);
+
+  if (self->mode == MODE_ALLOCS)
+    g_task_run_in_thread (task, draw_alloc_worker);
+  else
+    g_task_run_in_thread (task, draw_total_worker);
 
   return G_SOURCE_REMOVE;
 }
