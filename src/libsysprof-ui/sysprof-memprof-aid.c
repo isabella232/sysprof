@@ -192,7 +192,6 @@ sysprof_memprof_aid_present_finish (SysprofAid    *aid,
                            "visible", TRUE,
                            NULL);
       sysprof_display_add_page (p->display, page);
-      sysprof_display_set_visible_page (p->display, page);
 
       g_signal_connect_object (group,
                                "group-activated",
