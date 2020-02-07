@@ -27,7 +27,6 @@
 
 #include "rax.h"
 
-#include "sysprof-color-cycle.h"
 #include "sysprof-memprof-visualizer.h"
 
 typedef struct
@@ -287,7 +286,6 @@ draw_finished (GObject      *object,
 static gboolean
 sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
 {
-  g_autoptr(SysprofColorCycle) cycle = NULL;
   g_autoptr(GTask) task = NULL;
   GtkAllocation alloc;
   DrawContext *draw;
@@ -303,8 +301,6 @@ sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
       !gtk_widget_get_mapped (GTK_WIDGET (self)) ||
       alloc.width == 0 || alloc.height == 0)
     return G_SOURCE_REMOVE;
-
-  cycle = sysprof_color_cycle_new ();
 
   /* Some GPUs (Intel) cannot deal with graphics textures larger than
    * 8000x8000. So here we are going to cheat a bit and just use that as our
@@ -323,8 +319,9 @@ sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
   draw->begin_time = self->begin_time;
   draw->duration = self->duration;
   draw->scale = gtk_widget_get_scale_factor (GTK_WIDGET (self));
-  sysprof_color_cycle_next (cycle, &draw->fg);
-  sysprof_color_cycle_next (cycle, &draw->fg2);
+
+  gdk_rgba_parse (&draw->fg, "rgba(246,97,81,1)");
+  gdk_rgba_parse (&draw->fg2, "rgba(245,194,17,1)");
 
   draw->surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
                                               alloc.width * draw->scale,
