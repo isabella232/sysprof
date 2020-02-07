@@ -40,7 +40,6 @@ typedef struct
   gint64                duration;
   GdkRGBA               fg;
   GdkRGBA               fg2;
-  GdkRGBA               bg;
   guint                 scale;
 } DrawContext;
 
@@ -64,23 +63,12 @@ struct _SysprofMemprofVisualizer
 G_DEFINE_TYPE (SysprofMemprofVisualizer, sysprof_memprof_visualizer, SYSPROF_TYPE_VISUALIZER)
 
 static void
-draw_context_finalize (DrawContext *draw)
+draw_context_free (DrawContext *draw)
 {
   g_clear_pointer (&draw->reader, sysprof_capture_reader_unref);
   g_clear_pointer (&draw->surface, cairo_surface_destroy);
   g_clear_pointer (&draw->rax, raxFree);
-}
-
-static void
-draw_context_unref (DrawContext *draw)
-{
-  g_atomic_rc_box_release_full (draw, (GDestroyNotify)draw_context_finalize);
-}
-
-static DrawContext *
-draw_context_ref (DrawContext *draw)
-{
-  return g_atomic_rc_box_acquire (draw);
+  g_slice_free (DrawContext, draw);
 }
 
 static void
@@ -172,11 +160,7 @@ sysprof_memprof_visualizer_draw_worker (GTask        *task,
   log_max = log10 (max_alloc);
   midpt = draw->alloc.height / 2;
 
-  /* Fill background first */
   cr = cairo_create (draw->surface);
-  gdk_cairo_rectangle (cr, &draw->alloc);
-  gdk_cairo_set_source_rgba (cr, &draw->bg);
-  cairo_fill (cr);
 
   /* Draw mid-point line */
   mid = draw->fg;
@@ -188,6 +172,7 @@ sysprof_memprof_visualizer_draw_worker (GTask        *task,
   cairo_set_dash (cr, dashes, G_N_ELEMENTS (dashes), 0);
   cairo_stroke (cr);
 
+  cairo_set_antialias (cr, CAIRO_ANTIALIAS_NONE);
   gdk_cairo_set_source_rgba (cr, &draw->fg);
   last = &draw->fg;
 
@@ -304,9 +289,7 @@ sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
 {
   g_autoptr(SysprofColorCycle) cycle = NULL;
   g_autoptr(GTask) task = NULL;
-  GtkStyleContext *style_context;
   GtkAllocation alloc;
-  GtkStateFlags state;
   DrawContext *draw;
 
   g_assert (SYSPROF_IS_MEMPROF_VISUALIZER (self));
@@ -332,7 +315,7 @@ sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
   if (alloc.width > 8000)
     alloc.width = 8000;
 
-  draw = g_atomic_rc_box_new0 (DrawContext);
+  draw = g_slice_new0 (DrawContext);
   draw->rax = raxNew ();
   draw->alloc.width = alloc.width;
   draw->alloc.height = alloc.height;
@@ -343,21 +326,10 @@ sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
   sysprof_color_cycle_next (cycle, &draw->fg);
   sysprof_color_cycle_next (cycle, &draw->fg2);
 
-  draw->surface = cairo_image_surface_create (CAIRO_FORMAT_RGB24,
+  draw->surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
                                               alloc.width * draw->scale,
                                               alloc.height * draw->scale);
   cairo_surface_set_device_scale (draw->surface, draw->scale, draw->scale);
-
-  /* Get our styles to render with so we can do off-main-thread */
-  state = gtk_widget_get_state_flags (GTK_WIDGET (self));
-  style_context = gtk_widget_get_style_context (GTK_WIDGET (self));
-  /* Takin the render cost for render_background() isn't worth it on the
-   * main thread. The main thing we want here is an opaque surface that we
-   * can quickly draw as a texture when rendering.
-   */
-  G_GNUC_BEGIN_IGNORE_DEPRECATIONS
-  gtk_style_context_get_background_color (style_context, state, &draw->bg);
-  G_GNUC_END_IGNORE_DEPRECATIONS
 
   g_cancellable_cancel (self->cancellable);
   g_clear_object (&self->cancellable);
@@ -365,7 +337,7 @@ sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
 
   task = g_task_new (NULL, self->cancellable, draw_finished, g_object_ref (self));
   g_task_set_source_tag (task, sysprof_memprof_visualizer_begin_draw);
-  g_task_set_task_data (task, g_steal_pointer (&draw), (GDestroyNotify)draw_context_unref);
+  g_task_set_task_data (task, g_steal_pointer (&draw), (GDestroyNotify)draw_context_free);
   g_task_run_in_thread (task, sysprof_memprof_visualizer_draw_worker);
 
   return G_SOURCE_REMOVE;
@@ -414,9 +386,12 @@ sysprof_memprof_visualizer_draw (GtkWidget *widget,
                                  cairo_t   *cr)
 {
   SysprofMemprofVisualizer *self = (SysprofMemprofVisualizer *)widget;
+  gboolean ret;
 
   g_assert (SYSPROF_IS_MEMPROF_VISUALIZER (self));
   g_assert (cr != NULL);
+
+  ret = GTK_WIDGET_CLASS (sysprof_memprof_visualizer_parent_class)->draw (widget, cr);
 
   if (self->surface != NULL)
     {
@@ -443,11 +418,9 @@ sysprof_memprof_visualizer_draw (GtkWidget *widget,
       cairo_set_source_surface (cr, self->surface, 0, 0);
       cairo_paint (cr);
       cairo_restore (cr);
-
-      return GDK_EVENT_PROPAGATE;
     }
 
-  return GTK_WIDGET_CLASS (sysprof_memprof_visualizer_parent_class)->draw (widget, cr);
+  return ret;
 }
 
 static void
@@ -464,26 +437,6 @@ sysprof_memprof_visualizer_class_init (SysprofMemprofVisualizerClass *klass)
 }
 
 static void
-on_style_changed_cb (SysprofMemprofVisualizer *self,
-                     GtkStyleContext          *style_context)
-{
-  g_assert (SYSPROF_IS_MEMPROF_VISUALIZER (self));
-  g_assert (GTK_IS_STYLE_CONTEXT (style_context));
-
-  /* Style changing means we might look odd (dark on light, etc) so
-   * we just invalidate immediately instead of skewing the result
-   * until it has drawn.
-   */
-  g_clear_pointer (&self->surface, cairo_surface_destroy);
-  sysprof_memprof_visualizer_queue_redraw (self);
-}
-
-static void
 sysprof_memprof_visualizer_init (SysprofMemprofVisualizer *self)
 {
-  g_signal_connect_object (gtk_widget_get_style_context (GTK_WIDGET (self)),
-                           "changed",
-                           G_CALLBACK (on_style_changed_cb),
-                           self,
-                           G_CONNECT_SWAPPED);
 }
