@@ -133,10 +133,10 @@ get_max_alloc (SysprofCaptureReader *reader)
 }
 
 static void
-sysprof_memprof_visualizer_draw_worker (GTask        *task,
-                                        gpointer      source_object,
-                                        gpointer      task_data,
-                                        GCancellable *cancellable)
+draw_alloc_worker (GTask        *task,
+                   gpointer      source_object,
+                   gpointer      task_data,
+                   GCancellable *cancellable)
 {
   static const gdouble dashes[] = { 1.0, 2.0 };
   DrawContext *draw = task_data;
@@ -335,7 +335,7 @@ sysprof_memprof_visualizer_begin_draw (SysprofMemprofVisualizer *self)
   task = g_task_new (NULL, self->cancellable, draw_finished, g_object_ref (self));
   g_task_set_source_tag (task, sysprof_memprof_visualizer_begin_draw);
   g_task_set_task_data (task, g_steal_pointer (&draw), (GDestroyNotify)draw_context_free);
-  g_task_run_in_thread (task, sysprof_memprof_visualizer_draw_worker);
+  g_task_run_in_thread (task, draw_alloc_worker);
 
   return G_SOURCE_REMOVE;
 }
