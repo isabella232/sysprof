@@ -28,6 +28,6 @@ G_BEGIN_DECLS
 
 G_DECLARE_FINAL_TYPE (SysprofMemprofVisualizer, sysprof_memprof_visualizer, SYSPROF, MEMPROF_VISUALIZER, SysprofVisualizer)
 
-SysprofMemprofVisualizer *sysprof_memprof_visualizer_new (void);
+SysprofVisualizer *sysprof_memprof_visualizer_new (gboolean total_allocs);
 
 G_END_DECLS

@@ -183,11 +183,7 @@ sysprof_memprof_aid_present_finish (SysprofAid    *aid,
                             "visible", TRUE,
                             NULL);
 
-      row = g_object_new (SYSPROF_TYPE_MEMPROF_VISUALIZER,
-                          "title", _("Memory Allocations"),
-                          "height-request", 35,
-                          "visible", TRUE,
-                          NULL);
+      row = sysprof_memprof_visualizer_new (FALSE);
       sysprof_visualizer_group_insert (group, row, 0, FALSE);
 
       page = g_object_new (SYSPROF_TYPE_MEMPROF_PAGE,

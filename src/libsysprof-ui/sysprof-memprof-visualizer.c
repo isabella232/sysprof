@@ -22,6 +22,7 @@
 
 #define G_LOG_DOMAIN "sysprof-memprof-visualizer"
 
+#include <glib/gi18n.h>
 #include <math.h>
 #include <stddef.h>
 
@@ -57,6 +58,8 @@ struct _SysprofMemprofVisualizer
 
   gint64                begin_time;
   gint64                duration;
+
+  guint                 mode : 1;
 };
 
 G_DEFINE_TYPE (SysprofMemprofVisualizer, sysprof_memprof_visualizer, SYSPROF_TYPE_VISUALIZER)
@@ -91,10 +94,19 @@ sysprof_memprof_visualizer_set_reader (SysprofVisualizer    *visualizer,
   gtk_widget_queue_draw (GTK_WIDGET (self));
 }
 
-SysprofMemprofVisualizer *
-sysprof_memprof_visualizer_new (void)
+SysprofVisualizer *
+sysprof_memprof_visualizer_new (gboolean total_allocs)
 {
-  return g_object_new (SYSPROF_TYPE_MEMPROF_VISUALIZER, NULL);
+  SysprofMemprofVisualizer *self;
+
+  self = g_object_new (SYSPROF_TYPE_MEMPROF_VISUALIZER,
+                       "title", _("Memory Allocations"),
+                       "height-request", 35,
+                       "visible", TRUE,
+                       NULL);
+  self->mode = !!total_allocs;
+
+  return SYSPROF_VISUALIZER (self);
 }
 
 static guint64
